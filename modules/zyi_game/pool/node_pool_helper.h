@@ -12,7 +12,6 @@
 #include "core/variant/variant.h"
 #include "node_pool.h"
 #include "scene/2d/node_2d.h"
-#include "scene/main/node.h"
 #include "scene/resources/packed_scene.h"
 
 class ZyiNodePoolHelper : public Object {

@@ -44,13 +44,13 @@ void ZyiNodePoolHelper::release_node(Node *node, Ref<ZyiNodePool> pool) {
 		node2d->set_visible(false);
 	}
 	node->set_process_mode(Node::PROCESS_MODE_DISABLED);
-	ZyiUtilSignalHelper::object_clear_connections(node, SNAME("tree_entered"));
+	ZyiUtilSignalHelper::object_clear_connections(node, SceneStringName(tree_entered));
 	Node *parent = node->get_parent();
 	if (parent) {
 		parent->remove_child(node);
 	}
-	ZyiUtilSignalHelper::object_clear_connections(node, SNAME("tree_exiting"));
-	ZyiUtilSignalHelper::object_clear_connections(node, SNAME("tree_exited"));
+	ZyiUtilSignalHelper::object_clear_connections(node, SceneStringName(tree_exiting));
+	ZyiUtilSignalHelper::object_clear_connections(node, SceneStringName(tree_exited));
 	// 延迟加入对象池
 	callable_mp(pool.ptr(), &ZyiNodePool::release_node).call_deferred(node, false);
 }

@@ -16,14 +16,14 @@ def get_doc_path():
 def get_doc_classes():
     return [
         "ZyiUtilSet",
-        "ZyiDamageConstant",
+        "ZyiUtilEmitter",
+        "ZyiUtilCallableObject",
         "ZyiUtilObjectHelper",
         "ZyiUtilCallableHelper",
         "ZyiUtilSignalHelper",
         "ZyiUtilAttribute",
-        "ZyiNodePool",
-        "ZyiGameNodePoolManager",
-        "ZyiNodePoolHelper",
+        "ZyiUtilConfigurableAttributeAccessor",
+        "ZyiDamageConstant",
         "ZyiDamageExtraMetaResource",
         "ZyiDamageValue",
         "ZyiDamageDefenseResource",
@@ -34,4 +34,9 @@ def get_doc_classes():
         "ZyiDamageAttackMiddlewareResource",
         "ZyiDamageDefenseMiddlewareResource",
         "ZyiDamageManager",
+        "ZyiNodePool",
+        "ZyiGameNodePoolManager",
+        "ZyiNodePoolHelper",
+        "ZyiMoveSystem",
+        "ZyiMoveProxy",
     ]

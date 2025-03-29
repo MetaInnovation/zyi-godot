@@ -6,13 +6,11 @@ Import("env_modules")
 
 env_zyi_game = env_modules.Clone()
 
-env_zyi_game.add_source_files(env.modules_sources, "*.cpp")  # Add all cpp files to the build
 env_zyi_game.add_source_files(
-    env.modules_sources, "./util/*.cpp"
+    env.modules_sources, "*.cpp"
 )  # Add all cpp files to the build
-env_zyi_game.add_source_files(
-    env.modules_sources, "./damage_core/*.cpp"
-)  # Add all cpp files to the build
-env_zyi_game.add_source_files(
-    env.modules_sources, "./pool/*.cpp"
-)  # Add all cpp files to the build
+env_zyi_game.add_source_files(env.modules_sources, "./util/*.cpp")
+env_zyi_game.add_source_files(env.modules_sources, "./singleton/*.cpp")
+env_zyi_game.add_source_files(env.modules_sources, "./damage_core/*.cpp")
+env_zyi_game.add_source_files(env.modules_sources, "./pool/*.cpp")
+env_zyi_game.add_source_files(env.modules_sources, "./ecs/*.cpp")

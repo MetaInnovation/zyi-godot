@@ -1,0 +1,495 @@
+#include "move_proxy.h"
+
+void ZyiMoveComponentProxy::_bind_methods() {
+	ClassDB::bind_static_method("ZyiMoveComponentProxy", D_METHOD("create"), &ZyiMoveComponentProxy::create);
+	ClassDB::bind_method(D_METHOD("register_to_system", "system", "node", "can_knockback"), &ZyiMoveComponentProxy::register_to_system, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("unregister"), &ZyiMoveComponentProxy::unregister);
+	ClassDB::bind_method(D_METHOD("check_can_knockback"), &ZyiMoveComponentProxy::check_can_knockback);
+	ClassDB::bind_method(D_METHOD("update_knockback_enabled", "value"), &ZyiMoveComponentProxy::update_knockback_enabled);
+	ClassDB::bind_method(D_METHOD("get_move_node"), &ZyiMoveComponentProxy::get_move_node);
+	ClassDB::bind_method(D_METHOD("resolve_velocity"), &ZyiMoveComponentProxy::resolve_velocity);
+	ClassDB::bind_method(D_METHOD("update_move_linear", "initial_velocity", "acceleration_rate", "max_velocity_rate", "p_velocity_random_rate"), &ZyiMoveComponentProxy::update_move_linear);
+	ClassDB::bind_method(D_METHOD("update_move_linear_max_velocity_rate", "max_velocity_rate"), &ZyiMoveComponentProxy::update_move_linear_max_velocity_rate);
+	ClassDB::bind_method(D_METHOD("get_move_velocity_scale_add_rate"), &ZyiMoveComponentProxy::get_move_velocity_scale_add_rate);
+	ClassDB::bind_method(D_METHOD("update_move_velocity_scale_add_rate", "velocity_scale_add_rate"), &ZyiMoveComponentProxy::update_move_velocity_scale_add_rate);
+	ClassDB::bind_method(D_METHOD("update_move_rotate", "initial_rotation_rate", "rotation_acceleration_rate", "max_rotation_rate"), &ZyiMoveComponentProxy::update_move_rotate);
+	ClassDB::bind_method(D_METHOD("update_move_follow", "follow_target"), &ZyiMoveComponentProxy::update_move_follow);
+	ClassDB::bind_method(D_METHOD("update_move_freezed", "value"), &ZyiMoveComponentProxy::update_move_freezed);
+	ClassDB::bind_method(D_METHOD("update_move_disabled", "value"), &ZyiMoveComponentProxy::update_move_disabled);
+	ClassDB::bind_method(D_METHOD("update_move_knockback", "init_knockback_velocity", "knockback_deceleration_rate"), &ZyiMoveComponentProxy::update_move_knockback);
+	ClassDB::bind_method(D_METHOD("start_move_basic"), &ZyiMoveComponentProxy::start_move_basic);
+	ClassDB::bind_method(D_METHOD("start_move_knockback"), &ZyiMoveComponentProxy::start_move_knockback);
+	ClassDB::bind_method(D_METHOD("stop_move_basic"), &ZyiMoveComponentProxy::stop_move_basic);
+	ClassDB::bind_method(D_METHOD("stop_move_knockback"), &ZyiMoveComponentProxy::stop_move_knockback);
+	ClassDB::bind_method(D_METHOD("stop_move"), &ZyiMoveComponentProxy::stop_move);
+	ClassDB::bind_method(D_METHOD("start_move_towards_point", "pos"), &ZyiMoveComponentProxy::start_move_towards_point);
+	ClassDB::bind_method(D_METHOD("start_move_towards_direction", "direction"), &ZyiMoveComponentProxy::start_move_towards_direction);
+
+	ADD_SIGNAL(MethodInfo(SNAME("moving_changed"), PropertyInfo(Variant::BOOL, "moving")));
+	ADD_SIGNAL(MethodInfo(SNAME("moved"), PropertyInfo(Variant::VECTOR2, "velocity"), PropertyInfo(Variant::VECTOR2, "old_velocity")));
+	ADD_SIGNAL(MethodInfo(SNAME("move_h_changed"), PropertyInfo(Variant::VECTOR2, "velocity"), PropertyInfo(Variant::VECTOR2, "old_velocity")));
+	ADD_SIGNAL(MethodInfo(SNAME("move_v_changed"), PropertyInfo(Variant::VECTOR2, "velocity"), PropertyInfo(Variant::VECTOR2, "old_velocity")));
+	ADD_SIGNAL(MethodInfo(SNAME("knockback_moving_changed"), PropertyInfo(Variant::BOOL, "moving")));
+}
+
+Ref<ZyiMoveComponentProxy> ZyiMoveComponentProxy::create() {
+	Ref<ZyiMoveComponentProxy> result = memnew(ZyiMoveComponentProxy());
+	return result;
+}
+
+void ZyiMoveComponentProxy::register_to_system(const Ref<ZyiMoveSystem> &p_system, Node2D *p_node, bool p_can_knockback) {
+	system = p_system;
+	can_knockback = p_can_knockback;
+	node = p_node;
+	if (node->is_class("CharacterBody2D")) {
+		node_type = MOVE_NODE_TYPE_CHARACTER_BODY_2D;
+		character_move_component_id = system->acquire_character_move_component();
+		ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+		ptr->moved_callback = callable_mp(this, &ZyiMoveComponentProxy::handle_moved);
+		ptr->moving_changed_callback = callable_mp(this, &ZyiMoveComponentProxy::handle_moving_changed);
+		ptr->knockback_moving_changed_callback = callable_mp(this, &ZyiMoveComponentProxy::handle_knockback_moving_changed);
+	} else {
+		node_type = MOVE_NODE_TYPE_NORMAL;
+		normal_move_component_id = system->acquire_normal_move_component();
+		{
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			ptr->moved_callback = callable_mp(this, &ZyiMoveComponentProxy::handle_moved);
+			ptr->moving_changed_callback = callable_mp(this, &ZyiMoveComponentProxy::handle_moving_changed);
+		}
+		if (check_can_knockback()) {
+			knockback_move_component_id = system->acquire_knockback_move_component();
+			{
+				ZyiKnockbackMoveComponent *ptr = get_knockback_move_component_ptr();
+				ptr->knockback_moving_changed_callback = callable_mp(this, &ZyiMoveComponentProxy::handle_knockback_moving_changed);
+			}
+		} else {
+			knockback_move_component_id = -1;
+		}
+	}
+	node->connect(SceneStringName(tree_exiting), callable_mp(this, &ZyiMoveComponentProxy::on_node_tree_exiting), CONNECT_ONE_SHOT);
+}
+
+void ZyiMoveComponentProxy::on_node_tree_exiting() {
+	unregister();
+}
+
+void ZyiMoveComponentProxy::stop_follow() {
+	update_move_follow(nullptr);
+}
+
+void ZyiMoveComponentProxy::unregister() {
+	if (normal_move_component_id >= 0) {
+		system->release_normal_move_component(normal_move_component_id);
+		normal_move_component_id = -1;
+	}
+	if (character_move_component_id >= 0) {
+		system->release_character_move_component(character_move_component_id);
+		character_move_component_id = -1;
+	}
+	if (check_can_knockback() && knockback_move_component_id >= 0) {
+		system->release_knockback_move_component(knockback_move_component_id);
+		knockback_move_component_id = -1;
+	}
+	system = nullptr;
+	can_knockback = false;
+	node_type = MOVE_NODE_TYPE_NORMAL;
+	node = nullptr;
+}
+
+void ZyiMoveComponentProxy::handle_force_stop_follow() {
+	update_move_follow(nullptr);
+}
+
+void ZyiMoveComponentProxy::handle_moving_changed(bool moving) {
+	emit_signal(SNAME("moving_changed"), moving);
+}
+
+void ZyiMoveComponentProxy::handle_moved(Vector2 velocity, Vector2 old_velocity) {
+	emit_signal(SNAME("moved"), velocity, old_velocity);
+	if (VariantUtilityFunctions::signi(velocity.x) != VariantUtilityFunctions::signi(old_velocity.x)) {
+		emit_signal(SNAME("move_h_changed"), velocity, old_velocity);
+	}
+	if (VariantUtilityFunctions::signi(velocity.y) != VariantUtilityFunctions::signi(old_velocity.y)) {
+		emit_signal(SNAME("move_v_changed"), velocity, old_velocity);
+	}
+}
+
+void ZyiMoveComponentProxy::handle_knockback_moving_changed(bool moving) {
+	emit_signal(SNAME("knockback_moving_changed"), moving);
+}
+
+bool ZyiMoveComponentProxy::check_can_knockback() const {
+	return can_knockback;
+}
+
+void ZyiMoveComponentProxy::update_knockback_enabled(bool p_value) {
+	can_knockback = p_value;
+}
+
+ZyiNormalMoveComponent *ZyiMoveComponentProxy::get_normal_move_component_ptr() {
+	if (system.is_null()) {
+		return nullptr;
+	}
+	return system->get_normal_move_component_ptr(normal_move_component_id);
+}
+
+ZyiCharacterMoveComponent *ZyiMoveComponentProxy::get_character_move_component_ptr() {
+	if (system.is_null()) {
+		return nullptr;
+	}
+	return system->get_character_move_component_ptr(character_move_component_id);
+}
+
+ZyiKnockbackMoveComponent *ZyiMoveComponentProxy::get_knockback_move_component_ptr() {
+	if (system.is_null()) {
+		return nullptr;
+	}
+	return system->get_knockback_move_component_ptr(normal_move_component_id);
+}
+
+Node2D *ZyiMoveComponentProxy::get_move_node() {
+	return node;
+}
+
+Vector2 ZyiMoveComponentProxy::resolve_velocity() {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr && ptr->moving) {
+				return ptr->cur_velocity;
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr && ptr->moving) {
+				return ptr->cur_velocity;
+			}
+		} break;
+		default:
+			break;
+	}
+	return Vector2();
+}
+
+void ZyiMoveComponentProxy::update_move_linear(Vector2 p_initial_velocity, double p_acceleration_rate, double p_max_velocity_rate, double p_velocity_random_rate) {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				ptr->initial_velocity = p_initial_velocity;
+				ptr->acceleration_rate = p_acceleration_rate;
+				ptr->max_velocity_rate = p_max_velocity_rate;
+				ptr->velocity_random_rate = p_velocity_random_rate;
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				ptr->initial_velocity = p_initial_velocity;
+				ptr->acceleration_rate = p_acceleration_rate;
+				ptr->max_velocity_rate = p_max_velocity_rate;
+				ptr->velocity_random_rate = p_velocity_random_rate;
+			}
+		} break;
+		default:
+			break;
+	}
+}
+
+void ZyiMoveComponentProxy::update_move_linear_max_velocity_rate(double p_max_velocity_rate) {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				ptr->max_velocity_rate = p_max_velocity_rate;
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				ptr->max_velocity_rate = p_max_velocity_rate;
+			}
+		} break;
+		default:
+			break;
+	}
+}
+
+double ZyiMoveComponentProxy::get_move_velocity_scale_add_rate() {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				return ptr->velocity_scale_add_rate;
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				return ptr->velocity_scale_add_rate;
+			}
+		} break;
+		default:
+			break;
+	}
+	return 0.0;
+}
+
+void ZyiMoveComponentProxy::update_move_velocity_scale_add_rate(double p_velocity_scale_add_rate) {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				ptr->velocity_scale_add_rate = p_velocity_scale_add_rate;
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				ptr->velocity_scale_add_rate = p_velocity_scale_add_rate;
+			}
+		} break;
+		default:
+			break;
+	}
+}
+
+void ZyiMoveComponentProxy::update_move_rotate(double p_initial_rotation_rate, double p_rotation_acceleration_rate, double p_max_rotation_rate) {
+	if (node_type != MOVE_NODE_TYPE_NORMAL) {
+		return;
+	}
+	ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+	if (!ptr) {
+		return;
+	}
+	ptr->initial_rotation_rate = p_initial_rotation_rate;
+	ptr->rotation_acceleration_rate = p_rotation_acceleration_rate;
+	ptr->max_rotation_rate = p_max_rotation_rate;
+}
+
+void ZyiMoveComponentProxy::update_move_follow(Node2D *p_follow_target) {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				if (p_follow_target && !p_follow_target->is_queued_for_deletion()) {
+					ptr->follow_target = p_follow_target;
+					ptr->force_stop_follow_callback = callable_mp(this, &ZyiMoveComponentProxy::handle_force_stop_follow);
+					if (p_follow_target->is_visible_in_tree()) {
+						ptr->last_follow_valid = true;
+						ptr->last_follow_pos = p_follow_target->get_global_position();
+					} else {
+						ptr->last_follow_valid = false;
+					}
+					ZyiUtilSignalHelper::object_safe_connect(p_follow_target, SceneStringName(tree_exiting), callable_mp(this, &ZyiMoveComponentProxy::stop_follow), CONNECT_ONE_SHOT);
+				} else {
+					if (ptr->follow_target) {
+						ZyiUtilSignalHelper::object_safe_disconnect(static_cast<Object *>(ptr->follow_target), SceneStringName(tree_exiting), callable_mp(this, &ZyiMoveComponentProxy::stop_follow));
+					}
+					ptr->force_stop_follow_callback = Callable();
+					ptr->follow_target = nullptr;
+					ptr->last_follow_valid = false;
+				}
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				if (p_follow_target && !p_follow_target->is_queued_for_deletion()) {
+					ptr->follow_target = p_follow_target;
+					ZyiUtilSignalHelper::object_safe_connect(p_follow_target, SceneStringName(tree_exiting), callable_mp(this, &ZyiMoveComponentProxy::stop_follow), CONNECT_ONE_SHOT);
+				} else {
+					if (ptr->follow_target) {
+						ZyiUtilSignalHelper::object_safe_disconnect(static_cast<Object *>(ptr->follow_target), SceneStringName(tree_exiting), callable_mp(this, &ZyiMoveComponentProxy::stop_follow));
+					}
+					ptr->follow_target = nullptr;
+				}
+			}
+		} break;
+		default:
+			break;
+	}
+}
+
+void ZyiMoveComponentProxy::update_move_freezed(bool p_value) {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				ptr->freezed = p_value;
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				ptr->freezed = p_value;
+			}
+		} break;
+		default:
+			break;
+	}
+}
+
+void ZyiMoveComponentProxy::update_move_disabled(bool p_value) {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				ptr->move_disabled = p_value;
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				ptr->move_disabled = p_value;
+			}
+		} break;
+		default:
+			break;
+	}
+}
+
+void ZyiMoveComponentProxy::update_move_knockback(Vector2 p_init_knockback_velocity, double p_knockback_deceleration_rate) {
+	ZyiKnockbackMoveComponent *ptr = get_knockback_move_component_ptr();
+	if (!ptr) {
+		return;
+	}
+	ptr->init_knockback_velocity = p_init_knockback_velocity;
+	ptr->knockback_deceleration_rate = p_knockback_deceleration_rate;
+}
+
+void ZyiMoveComponentProxy::start_move_basic() {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr && !ptr->moving && !ptr->initial_velocity.is_zero_approx()) {
+				ptr->cur_velocity = ptr->initial_velocity;
+				ptr->cur_rotation_rate = ptr->initial_rotation_rate;
+				ptr->move_node = node;
+				ptr->set_moving(true);
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr && !ptr->moving && !ptr->initial_velocity.is_zero_approx()) {
+				ptr->cur_velocity = ptr->initial_velocity;
+				ptr->move_node = static_cast<CharacterBody2D *>(node);
+				ptr->set_moving(true);
+			}
+		} break;
+		default:
+			break;
+	}
+}
+
+void ZyiMoveComponentProxy::start_move_knockback() {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiKnockbackMoveComponent *ptr = get_knockback_move_component_ptr();
+			if (ptr && !ptr->moving && !ptr->init_knockback_velocity.is_zero_approx()) {
+				ptr->cur_knockback_velocity = ptr->init_knockback_velocity;
+				ptr->move_node = node;
+				ptr->set_knockback_moving(true);
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr && !ptr->knockback_moving && !ptr->init_knockback_velocity.is_zero_approx()) {
+				ptr->cur_knockback_velocity = ptr->init_knockback_velocity;
+				ptr->move_node = static_cast<CharacterBody2D *>(node);
+				ptr->set_knockback_moving(true);
+			}
+		} break;
+		default:
+			break;
+	}
+}
+
+void ZyiMoveComponentProxy::stop_move_basic() {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				ptr->set_moving(false);
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				ptr->set_moving(false);
+			}
+		} break;
+		default:
+			break;
+	}
+}
+
+void ZyiMoveComponentProxy::stop_move_knockback() {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiKnockbackMoveComponent *ptr = get_knockback_move_component_ptr();
+			if (ptr) {
+				ptr->set_knockback_moving(false);
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				ptr->set_knockback_moving(false);
+			}
+		} break;
+		default:
+			break;
+	}
+}
+
+void ZyiMoveComponentProxy::stop_move() {
+	stop_move_basic();
+	stop_move_knockback();
+}
+
+bool ZyiMoveComponentProxy::start_move_towards_point(Vector2 p_pos) {
+	if (node && !node->is_queued_for_deletion() && node->is_visible_in_tree()) {
+		Vector2 pos = node->get_global_position();
+		if (pos.is_equal_approx(p_pos)) {
+			return false;
+		}
+		start_move_towards_direction(pos.direction_to(p_pos));
+		return true;
+	} else {
+		return false;
+	}
+}
+
+void ZyiMoveComponentProxy::start_move_towards_direction(Vector2 p_direction) {
+	if (p_direction.is_zero_approx()) {
+		stop_move();
+		return;
+	}
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				if (ptr->moving) {
+					ptr->cur_velocity = p_direction * ptr->cur_velocity.length();
+				} else {
+					ptr->initial_velocity = p_direction;
+					start_move_basic();
+				}
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				if (ptr->moving) {
+					ptr->cur_velocity = p_direction * ptr->cur_velocity.length();
+				} else {
+					ptr->initial_velocity = p_direction;
+					start_move_basic();
+				}
+			}
+		} break;
+		default:
+			break;
+	}
+}
