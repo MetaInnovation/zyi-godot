@@ -27,6 +27,7 @@
 #include "./pool/node_pool.h"
 #include "./pool/node_pool_helper.h"
 
+#include "./ecs/floating_text_system_canvas.h"
 #include "./ecs/move_proxy.h"
 #include "./ecs/move_system.h"
 
@@ -61,6 +62,7 @@ void initialize_zyi_game_module(ModuleInitializationLevel p_level) {
 
 	GDREGISTER_CLASS(ZyiMoveSystem);
 	GDREGISTER_CLASS(ZyiMoveComponentProxy);
+	GDREGISTER_CLASS(ZyiFloatingTextSystemCanvas);
 }
 
 void uninitialize_zyi_game_module(ModuleInitializationLevel p_level) {
