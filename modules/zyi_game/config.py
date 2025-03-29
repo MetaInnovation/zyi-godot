@@ -39,4 +39,5 @@ def get_doc_classes():
         "ZyiNodePoolHelper",
         "ZyiMoveSystem",
         "ZyiMoveProxy",
+        "ZyiFloatingTextSystemCanvas",
     ]
