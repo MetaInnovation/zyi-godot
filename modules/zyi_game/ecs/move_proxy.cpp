@@ -498,3 +498,7 @@ void ZyiMoveComponentProxy::start_move_towards_direction(Vector2 p_direction) {
 			break;
 	}
 }
+
+ZyiMoveComponentProxy::~ZyiMoveComponentProxy() {
+	unregister();
+}

@@ -57,6 +57,7 @@ public:
 	void stop_move();
 	bool start_move_towards_point(Vector2 p_pos);
 	void start_move_towards_direction(Vector2 p_direction);
+	~ZyiMoveComponentProxy();
 };
 
 #endif /* MOVE_PROXY_H */
