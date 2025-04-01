@@ -4,6 +4,7 @@ void ZyiMoveComponentProxy::_bind_methods() {
 	ClassDB::bind_static_method("ZyiMoveComponentProxy", D_METHOD("create"), &ZyiMoveComponentProxy::create);
 	ClassDB::bind_method(D_METHOD("register_to_system", "system", "node", "can_knockback"), &ZyiMoveComponentProxy::register_to_system, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("unregister"), &ZyiMoveComponentProxy::unregister);
+	ClassDB::bind_method(D_METHOD("is_registered"), &ZyiMoveComponentProxy::is_registered);
 	ClassDB::bind_method(D_METHOD("check_can_knockback"), &ZyiMoveComponentProxy::check_can_knockback);
 	ClassDB::bind_method(D_METHOD("update_knockback_enabled", "value"), &ZyiMoveComponentProxy::update_knockback_enabled);
 	ClassDB::bind_method(D_METHOD("get_move_node"), &ZyiMoveComponentProxy::get_move_node);
@@ -94,6 +95,10 @@ void ZyiMoveComponentProxy::unregister() {
 	can_knockback = false;
 	node_type = MOVE_NODE_TYPE_NORMAL;
 	node = nullptr;
+}
+
+bool ZyiMoveComponentProxy::is_registered() {
+	return system != nullptr;
 }
 
 void ZyiMoveComponentProxy::handle_force_stop_follow() {

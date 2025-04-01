@@ -29,6 +29,7 @@ public:
 	void on_node_tree_exiting();
 	void stop_follow();
 	void unregister();
+	bool is_registered();
 	void handle_force_stop_follow();
 	void handle_moving_changed(bool moving);
 	void handle_moved(Vector2 velocity, Vector2 old_velocity);
