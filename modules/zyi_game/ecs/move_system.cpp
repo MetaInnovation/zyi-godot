@@ -27,6 +27,7 @@ T *ZyiMoveSystemInternalComponentPool<T>::get_component_ptr(int64_t id) {
 template <typename T>
 void ZyiMoveSystemInternalComponentPool<T>::release_all() {
 	pool.clear();
+	released_index_pool.clear();
 }
 
 const double ZyiMoveSystem::MIN_ROTATION_ANGLE = 0.01;
