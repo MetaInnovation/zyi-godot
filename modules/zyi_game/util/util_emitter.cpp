@@ -72,7 +72,8 @@ void ZyiUtilEmitter::emit(const StringName &p_name, const Variant &p_payload) {
 		return;
 	}
 	LocalVector<int64_t> invalid_indices;
-	for (int64_t i = 0; i < items->size(); i++) {
+	int64_t size = items->size();
+	for (int64_t i = 0; i < size; i++) {
 		if (!call_listener((*items)[i], p_payload)) {
 			invalid_indices.push_back(i);
 		}
