@@ -19,6 +19,7 @@ void ZyiMoveComponentProxy::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("update_move_freezed", "value"), &ZyiMoveComponentProxy::update_move_freezed);
 	ClassDB::bind_method(D_METHOD("update_move_disabled", "value"), &ZyiMoveComponentProxy::update_move_disabled);
 	ClassDB::bind_method(D_METHOD("update_move_knockback", "init_knockback_velocity", "knockback_deceleration_rate"), &ZyiMoveComponentProxy::update_move_knockback);
+	ClassDB::bind_method(D_METHOD("update_move_knockback_disabled", "value"), &ZyiMoveComponentProxy::update_move_knockback_disabled);
 	ClassDB::bind_method(D_METHOD("lock_move_direction"), &ZyiMoveComponentProxy::lock_move_direction);
 	ClassDB::bind_method(D_METHOD("unlock_move_direction"), &ZyiMoveComponentProxy::unlock_move_direction);
 	ClassDB::bind_method(D_METHOD("start_move_basic"), &ZyiMoveComponentProxy::start_move_basic);
@@ -97,6 +98,7 @@ void ZyiMoveComponentProxy::unregister() {
 	system = nullptr;
 	can_knockback = false;
 	direction_locked = false;
+	knockback_disabled = false;
 	node_type = MOVE_NODE_TYPE_NORMAL;
 	node = nullptr;
 }
@@ -383,6 +385,9 @@ void ZyiMoveComponentProxy::update_move_disabled(bool p_value) {
 }
 
 void ZyiMoveComponentProxy::update_move_knockback(Vector2 p_init_knockback_velocity, double p_knockback_deceleration_rate) {
+	if (knockback_disabled) {
+		return;
+	}
 	switch (node_type) {
 		case MOVE_NODE_TYPE_NORMAL: {
 			ZyiKnockbackMoveComponent *ptr = get_knockback_move_component_ptr();
@@ -401,6 +406,10 @@ void ZyiMoveComponentProxy::update_move_knockback(Vector2 p_init_knockback_veloc
 		default:
 			break;
 	}
+}
+
+void ZyiMoveComponentProxy::update_move_knockback_disabled(bool p_value) {
+	knockback_disabled = p_value;
 }
 
 void ZyiMoveComponentProxy::lock_move_direction() {
@@ -436,6 +445,9 @@ void ZyiMoveComponentProxy::start_move_basic() {
 }
 
 void ZyiMoveComponentProxy::start_move_knockback() {
+	if (knockback_disabled) {
+		return;
+	}
 	switch (node_type) {
 		case MOVE_NODE_TYPE_NORMAL: {
 			ZyiKnockbackMoveComponent *ptr = get_knockback_move_component_ptr();
