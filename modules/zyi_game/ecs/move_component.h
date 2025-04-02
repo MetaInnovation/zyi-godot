@@ -65,6 +65,9 @@ struct ZyiMoveBasicComponent {
 	_ALWAYS_INLINE_ Vector2 resolve_velocity() {
 		return cur_velocity * (1.0 + velocity_scale_add_rate);
 	}
+	_ALWAYS_INLINE_ double resolve_max_velocity_rate() {
+		return max_velocity_rate * (1.0 + velocity_scale_add_rate);
+	}
 };
 
 struct ZyiNormalMoveComponent : public ZyiMoveBasicComponent {
