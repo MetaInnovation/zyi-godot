@@ -18,6 +18,7 @@ public:
 	Ref<ZyiMoveSystem> system;
 	bool can_knockback = false;
 	bool direction_locked = false;
+	bool knockback_disabled = false;
 	ZyiMoveNodeType node_type = MOVE_NODE_TYPE_NORMAL;
 	Node2D *node = nullptr;
 	int64_t character_move_component_id = -1;
@@ -52,6 +53,7 @@ public:
 	void update_move_freezed(bool p_value);
 	void update_move_disabled(bool p_value);
 	void update_move_knockback(Vector2 p_init_knockback_velocity, double p_knockback_deceleration_rate);
+	void update_move_knockback_disabled(bool p_value);
 	void lock_move_direction();
 	void unlock_move_direction();
 	void start_move_basic();
