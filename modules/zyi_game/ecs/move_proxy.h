@@ -18,6 +18,7 @@ public:
 	Ref<ZyiMoveSystem> system;
 	bool can_knockback = false;
 	bool direction_locked = false;
+	bool freezed = false;
 	bool knockback_disabled = false;
 	ZyiMoveNodeType node_type = MOVE_NODE_TYPE_NORMAL;
 	Node2D *node = nullptr;
