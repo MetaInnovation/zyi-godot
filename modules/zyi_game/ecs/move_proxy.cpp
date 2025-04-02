@@ -98,6 +98,7 @@ void ZyiMoveComponentProxy::unregister() {
 	system = nullptr;
 	can_knockback = false;
 	direction_locked = false;
+	freezed = false;
 	knockback_disabled = false;
 	node_type = MOVE_NODE_TYPE_NORMAL;
 	node = nullptr;
@@ -347,6 +348,7 @@ void ZyiMoveComponentProxy::update_move_follow(Node2D *p_follow_target) {
 }
 
 void ZyiMoveComponentProxy::update_move_freezed(bool p_value) {
+	freezed = p_value;
 	switch (node_type) {
 		case MOVE_NODE_TYPE_NORMAL: {
 			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
@@ -421,6 +423,9 @@ void ZyiMoveComponentProxy::unlock_move_direction() {
 }
 
 void ZyiMoveComponentProxy::start_move_basic() {
+	if (freezed) {
+		return;
+	}
 	switch (node_type) {
 		case MOVE_NODE_TYPE_NORMAL: {
 			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
@@ -445,7 +450,7 @@ void ZyiMoveComponentProxy::start_move_basic() {
 }
 
 void ZyiMoveComponentProxy::start_move_knockback() {
-	if (knockback_disabled) {
+	if (knockback_disabled || freezed) {
 		return;
 	}
 	switch (node_type) {
