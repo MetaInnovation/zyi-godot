@@ -383,12 +383,24 @@ void ZyiMoveComponentProxy::update_move_disabled(bool p_value) {
 }
 
 void ZyiMoveComponentProxy::update_move_knockback(Vector2 p_init_knockback_velocity, double p_knockback_deceleration_rate) {
-	ZyiKnockbackMoveComponent *ptr = get_knockback_move_component_ptr();
-	if (!ptr) {
-		return;
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiKnockbackMoveComponent *ptr = get_knockback_move_component_ptr();
+			if (ptr) {
+				ptr->init_knockback_velocity = p_init_knockback_velocity;
+				ptr->knockback_deceleration_rate = p_knockback_deceleration_rate;
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				ptr->init_knockback_velocity = p_init_knockback_velocity;
+				ptr->knockback_deceleration_rate = p_knockback_deceleration_rate;
+			}
+		} break;
+		default:
+			break;
 	}
-	ptr->init_knockback_velocity = p_init_knockback_velocity;
-	ptr->knockback_deceleration_rate = p_knockback_deceleration_rate;
 }
 
 void ZyiMoveComponentProxy::lock_move_direction() {
@@ -428,7 +440,7 @@ void ZyiMoveComponentProxy::start_move_knockback() {
 		case MOVE_NODE_TYPE_NORMAL: {
 			ZyiKnockbackMoveComponent *ptr = get_knockback_move_component_ptr();
 			if (ptr && !ptr->moving && !ptr->init_knockback_velocity.is_zero_approx()) {
-				ptr->cur_knockback_velocity = ptr->init_knockback_velocity;
+				ptr->set_cur_knockback_velocity(ptr->init_knockback_velocity);
 				ptr->move_node = node;
 				ptr->set_knockback_moving(true);
 			}
@@ -436,7 +448,7 @@ void ZyiMoveComponentProxy::start_move_knockback() {
 		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
 			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
 			if (ptr && !ptr->knockback_moving && !ptr->init_knockback_velocity.is_zero_approx()) {
-				ptr->cur_knockback_velocity = ptr->init_knockback_velocity;
+				ptr->set_cur_knockback_velocity(ptr->init_knockback_velocity);
 				ptr->move_node = static_cast<CharacterBody2D *>(node);
 				ptr->set_knockback_moving(true);
 			}
