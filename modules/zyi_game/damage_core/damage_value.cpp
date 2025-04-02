@@ -156,11 +156,14 @@ Dictionary ZyiDamageValue::calc_and_resolve_value_by_type(const TypedArray<ZyiDa
 	LocalVector<Dictionary> append_list;
 	for (const Ref<ZyiDamageValue> &item : p_data) {
 		if (!p_ignore_append && item->get_is_append()) {
-			append_list.push_back(calc_and_resolve_value_by_type({ item }, true));
+			TypedArray<ZyiDamageValue> child_data;
+			child_data.append(item);
+			append_list.push_back(calc_and_resolve_value_by_type(child_data, true, p_func));
 		} else {
 			const double crit = item->get_crit_rate();
 			const double crit_damage_rate = item->get_crit_damage_rate();
-			if (crit < 1.0 && double(p_func.call(0, 1)) > crit) {
+			const double factor = p_func.call(0, 1);
+			if (crit < 1.0 && factor > crit) {
 				total_normal += item->get_value();
 				real_val += item->get_real_value();
 			} else {

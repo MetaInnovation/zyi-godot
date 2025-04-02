@@ -103,10 +103,10 @@ Ref<ZyiDamageValue> ZyiDamageManager::calc_damage_value_with_defense(const Ref<Z
 	// 真实伤害剩余比例
 	const double real_damage_radio = 1.0;
 	// 普通伤害剩余比例
-	const double damage_radio = std::max(real_damage_radio - defense_immunity_radio, 0.0);
+	const double damage_radio = std::max(1.0 - defense_immunity_radio, 0.0);
 	Ref<ZyiDamageValue> result = p_damage->deep_clone();
 	result->set_value(VariantUtilityFunctions::ceili(damage * damage_radio));
-	result->set_real_value(VariantUtilityFunctions::ceili(real_damage * damage_radio));
+	result->set_real_value(VariantUtilityFunctions::ceili(real_damage * real_damage_radio));
 	return result;
 }
 
