@@ -51,6 +51,7 @@ public:
 	void update_move_velocity_scale_add_rate(double p_velocity_scale_add_rate);
 	void update_move_rotate(double p_initial_rotation_rate, double p_rotation_acceleration_rate, double p_max_rotation_rate);
 	void update_move_follow(Node2D *p_follow_target);
+	void update_move_follow_pos(Vector2 p_pos);
 	void update_move_freezed(bool p_value);
 	void update_move_disabled(bool p_value);
 	void update_move_knockback(Vector2 p_init_knockback_velocity, double p_knockback_deceleration_rate);

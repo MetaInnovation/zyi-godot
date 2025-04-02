@@ -158,6 +158,7 @@ void ZyiMoveSystem::idle_physics_process_update(double p_delta) {
 			can_follow = true;
 		}
 		Vector2 direction = component.cur_velocity.normalized();
+		Vector2 origin_direction = Vector2(direction);
 		Vector2 node_pos = node->get_global_position();
 		double follow_dist_squared = -1.0;
 		double dist_angle = -1.0;
@@ -189,13 +190,14 @@ void ZyiMoveSystem::idle_physics_process_update(double p_delta) {
 		component.set_cur_velocity(direction * cur_velocity_rate);
 		// 移动预测：如果移动后相当于远离，且方向夹角小于 90 度 距离也小于速度，则强制更新 global_position
 		if (follow_dist_squared > 0.0) {
-			bool is_leave = (node_pos + component.cur_velocity * p_delta).distance_squared_to(follow_target_pos) > follow_dist_squared;
+			bool is_leave = (node_pos + component.resolve_velocity() * p_delta).distance_squared_to(follow_target_pos) > follow_dist_squared;
 			bool is_near_than_velocity = follow_dist_squared < component.cur_velocity.length_squared();
 			if (is_leave && is_near_than_velocity && Math::abs(dist_angle) < Math_PI / 2.0) {
 				component.use_preset_pos_for_single_frame = true;
 				component.preset_pos = follow_target_pos;
 				// 不再跟随
 				component.force_stop_follow();
+				component.set_cur_velocity(origin_direction * cur_velocity_rate);
 			}
 		}
 	}
@@ -224,8 +226,21 @@ void ZyiMoveSystem::idle_physics_process_update(double p_delta) {
 		follow_target = component.follow_target;
 		Vector2 direction = component.cur_velocity.normalized();
 		double cur_velocity_rate = component.cur_velocity.length();
-		if (follow_target && !follow_target->is_queued_for_deletion()) {
-			direction = character_body->get_global_position().direction_to(follow_target->get_global_position());
+		// 应用跟随
+		Vector2 follow_target_pos;
+		bool can_follow = false;
+		if (follow_target && !follow_target->is_queued_for_deletion() && follow_target->is_visible_in_tree()) {
+			follow_target_pos = follow_target->get_global_position();
+			component.last_follow_valid = true;
+			component.last_follow_pos = follow_target_pos;
+			can_follow = true;
+		} else if (component.last_follow_valid) {
+			follow_target_pos = component.last_follow_pos;
+			component.last_follow_valid = false;
+			can_follow = true;
+		}
+		if (can_follow) {
+			direction = character_body->get_global_position().direction_to(follow_target_pos);
 		}
 		if (direction.is_zero_approx()) {
 			continue;
