@@ -9,6 +9,7 @@ void ZyiMoveComponentProxy::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("update_knockback_enabled", "value"), &ZyiMoveComponentProxy::update_knockback_enabled);
 	ClassDB::bind_method(D_METHOD("get_move_node"), &ZyiMoveComponentProxy::get_move_node);
 	ClassDB::bind_method(D_METHOD("resolve_velocity"), &ZyiMoveComponentProxy::resolve_velocity);
+	ClassDB::bind_method(D_METHOD("resolve_max_velocity_rate"), &ZyiMoveComponentProxy::resolve_max_velocity_rate);
 	ClassDB::bind_method(D_METHOD("update_move_linear", "initial_velocity", "acceleration_rate", "max_velocity_rate", "p_velocity_random_rate"), &ZyiMoveComponentProxy::update_move_linear);
 	ClassDB::bind_method(D_METHOD("update_move_linear_max_velocity_rate", "max_velocity_rate"), &ZyiMoveComponentProxy::update_move_linear_max_velocity_rate);
 	ClassDB::bind_method(D_METHOD("get_move_velocity_scale_add_rate"), &ZyiMoveComponentProxy::get_move_velocity_scale_add_rate);
@@ -18,6 +19,8 @@ void ZyiMoveComponentProxy::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("update_move_freezed", "value"), &ZyiMoveComponentProxy::update_move_freezed);
 	ClassDB::bind_method(D_METHOD("update_move_disabled", "value"), &ZyiMoveComponentProxy::update_move_disabled);
 	ClassDB::bind_method(D_METHOD("update_move_knockback", "init_knockback_velocity", "knockback_deceleration_rate"), &ZyiMoveComponentProxy::update_move_knockback);
+	ClassDB::bind_method(D_METHOD("lock_move_direction"), &ZyiMoveComponentProxy::lock_move_direction);
+	ClassDB::bind_method(D_METHOD("unlock_move_direction"), &ZyiMoveComponentProxy::unlock_move_direction);
 	ClassDB::bind_method(D_METHOD("start_move_basic"), &ZyiMoveComponentProxy::start_move_basic);
 	ClassDB::bind_method(D_METHOD("start_move_knockback"), &ZyiMoveComponentProxy::start_move_knockback);
 	ClassDB::bind_method(D_METHOD("stop_move_basic"), &ZyiMoveComponentProxy::stop_move_basic);
@@ -93,6 +96,7 @@ void ZyiMoveComponentProxy::unregister() {
 	}
 	system = nullptr;
 	can_knockback = false;
+	direction_locked = false;
 	node_type = MOVE_NODE_TYPE_NORMAL;
 	node = nullptr;
 }
@@ -161,13 +165,13 @@ Vector2 ZyiMoveComponentProxy::resolve_velocity() {
 		case MOVE_NODE_TYPE_NORMAL: {
 			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
 			if (ptr && ptr->moving) {
-				return ptr->cur_velocity;
+				return ptr->resolve_velocity();
 			}
 		} break;
 		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
 			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
 			if (ptr && ptr->moving) {
-				return ptr->cur_velocity;
+				return ptr->resolve_velocity();
 			}
 		} break;
 		default:
@@ -176,12 +180,34 @@ Vector2 ZyiMoveComponentProxy::resolve_velocity() {
 	return Vector2();
 }
 
+double ZyiMoveComponentProxy::resolve_max_velocity_rate() {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr && ptr->moving) {
+				return ptr->resolve_max_velocity_rate();
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr && ptr->moving) {
+				return ptr->resolve_max_velocity_rate();
+			}
+		} break;
+		default:
+			break;
+	}
+	return 0.0;
+}
+
 void ZyiMoveComponentProxy::update_move_linear(Vector2 p_initial_velocity, double p_acceleration_rate, double p_max_velocity_rate, double p_velocity_random_rate) {
 	switch (node_type) {
 		case MOVE_NODE_TYPE_NORMAL: {
 			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
 			if (ptr) {
-				ptr->initial_velocity = p_initial_velocity;
+				if (!direction_locked) {
+					ptr->initial_velocity = p_initial_velocity;
+				}
 				ptr->acceleration_rate = p_acceleration_rate;
 				ptr->max_velocity_rate = p_max_velocity_rate;
 				ptr->velocity_random_rate = p_velocity_random_rate;
@@ -190,7 +216,9 @@ void ZyiMoveComponentProxy::update_move_linear(Vector2 p_initial_velocity, doubl
 		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
 			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
 			if (ptr) {
-				ptr->initial_velocity = p_initial_velocity;
+				if (!direction_locked) {
+					ptr->initial_velocity = p_initial_velocity;
+				}
 				ptr->acceleration_rate = p_acceleration_rate;
 				ptr->max_velocity_rate = p_max_velocity_rate;
 				ptr->velocity_random_rate = p_velocity_random_rate;
@@ -363,12 +391,20 @@ void ZyiMoveComponentProxy::update_move_knockback(Vector2 p_init_knockback_veloc
 	ptr->knockback_deceleration_rate = p_knockback_deceleration_rate;
 }
 
+void ZyiMoveComponentProxy::lock_move_direction() {
+	direction_locked = true;
+}
+
+void ZyiMoveComponentProxy::unlock_move_direction() {
+	direction_locked = false;
+}
+
 void ZyiMoveComponentProxy::start_move_basic() {
 	switch (node_type) {
 		case MOVE_NODE_TYPE_NORMAL: {
 			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
 			if (ptr && !ptr->moving && !ptr->initial_velocity.is_zero_approx()) {
-				ptr->cur_velocity = ptr->initial_velocity;
+				ptr->set_cur_velocity(ptr->initial_velocity);
 				ptr->cur_rotation_rate = ptr->initial_rotation_rate;
 				ptr->move_node = node;
 				ptr->set_moving(true);
@@ -377,7 +413,7 @@ void ZyiMoveComponentProxy::start_move_basic() {
 		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
 			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
 			if (ptr && !ptr->moving && !ptr->initial_velocity.is_zero_approx()) {
-				ptr->cur_velocity = ptr->initial_velocity;
+				ptr->set_cur_velocity(ptr->initial_velocity);
 				ptr->move_node = static_cast<CharacterBody2D *>(node);
 				ptr->set_moving(true);
 			}
@@ -476,9 +512,13 @@ void ZyiMoveComponentProxy::start_move_towards_direction(Vector2 p_direction) {
 			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
 			if (ptr) {
 				if (ptr->moving) {
-					ptr->cur_velocity = p_direction * ptr->cur_velocity.length();
+					if (!direction_locked) {
+						ptr->set_cur_velocity(p_direction * ptr->cur_velocity.length());
+					}
 				} else {
-					ptr->initial_velocity = p_direction;
+					if (!direction_locked) {
+						ptr->initial_velocity = p_direction;
+					}
 					start_move_basic();
 				}
 			}
@@ -487,9 +527,13 @@ void ZyiMoveComponentProxy::start_move_towards_direction(Vector2 p_direction) {
 			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
 			if (ptr) {
 				if (ptr->moving) {
-					ptr->cur_velocity = p_direction * ptr->cur_velocity.length();
+					if (!direction_locked) {
+						ptr->set_cur_velocity(p_direction * ptr->cur_velocity.length());
+					}
 				} else {
-					ptr->initial_velocity = p_direction;
+					if (!direction_locked) {
+						ptr->initial_velocity = p_direction;
+					}
 					start_move_basic();
 				}
 			}
