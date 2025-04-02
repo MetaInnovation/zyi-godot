@@ -16,6 +16,7 @@ void ZyiMoveComponentProxy::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("update_move_velocity_scale_add_rate", "velocity_scale_add_rate"), &ZyiMoveComponentProxy::update_move_velocity_scale_add_rate);
 	ClassDB::bind_method(D_METHOD("update_move_rotate", "initial_rotation_rate", "rotation_acceleration_rate", "max_rotation_rate"), &ZyiMoveComponentProxy::update_move_rotate);
 	ClassDB::bind_method(D_METHOD("update_move_follow", "follow_target"), &ZyiMoveComponentProxy::update_move_follow);
+	ClassDB::bind_method(D_METHOD("update_move_follow_pos", "pos"), &ZyiMoveComponentProxy::update_move_follow_pos);
 	ClassDB::bind_method(D_METHOD("update_move_freezed", "value"), &ZyiMoveComponentProxy::update_move_freezed);
 	ClassDB::bind_method(D_METHOD("update_move_disabled", "value"), &ZyiMoveComponentProxy::update_move_disabled);
 	ClassDB::bind_method(D_METHOD("update_move_knockback", "init_knockback_velocity", "knockback_deceleration_rate"), &ZyiMoveComponentProxy::update_move_knockback);
@@ -31,6 +32,7 @@ void ZyiMoveComponentProxy::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("start_move_towards_direction", "direction"), &ZyiMoveComponentProxy::start_move_towards_direction);
 
 	ADD_SIGNAL(MethodInfo(SNAME("moving_changed"), PropertyInfo(Variant::BOOL, "moving")));
+	ADD_SIGNAL(MethodInfo(SNAME("follow_force_stop")));
 	ADD_SIGNAL(MethodInfo(SNAME("moved"), PropertyInfo(Variant::VECTOR2, "velocity"), PropertyInfo(Variant::VECTOR2, "old_velocity")));
 	ADD_SIGNAL(MethodInfo(SNAME("move_h_changed"), PropertyInfo(Variant::VECTOR2, "velocity"), PropertyInfo(Variant::VECTOR2, "old_velocity")));
 	ADD_SIGNAL(MethodInfo(SNAME("move_v_changed"), PropertyInfo(Variant::VECTOR2, "velocity"), PropertyInfo(Variant::VECTOR2, "old_velocity")));
@@ -110,6 +112,7 @@ bool ZyiMoveComponentProxy::is_registered() {
 
 void ZyiMoveComponentProxy::handle_force_stop_follow() {
 	update_move_follow(nullptr);
+	emit_signal(SNAME("follow_force_stop"));
 }
 
 void ZyiMoveComponentProxy::handle_moving_changed(bool moving) {
@@ -333,13 +336,41 @@ void ZyiMoveComponentProxy::update_move_follow(Node2D *p_follow_target) {
 			if (ptr) {
 				if (p_follow_target && !p_follow_target->is_queued_for_deletion()) {
 					ptr->follow_target = p_follow_target;
+					if (p_follow_target->is_visible_in_tree()) {
+						ptr->last_follow_valid = true;
+						ptr->last_follow_pos = p_follow_target->get_global_position();
+					} else {
+						ptr->last_follow_valid = false;
+					}
 					ZyiUtilSignalHelper::object_safe_connect(p_follow_target, SceneStringName(tree_exiting), callable_mp(this, &ZyiMoveComponentProxy::stop_follow), CONNECT_ONE_SHOT);
 				} else {
 					if (ptr->follow_target) {
 						ZyiUtilSignalHelper::object_safe_disconnect(static_cast<Object *>(ptr->follow_target), SceneStringName(tree_exiting), callable_mp(this, &ZyiMoveComponentProxy::stop_follow));
 					}
 					ptr->follow_target = nullptr;
+					ptr->last_follow_valid = false;
 				}
+			}
+		} break;
+		default:
+			break;
+	}
+}
+
+void ZyiMoveComponentProxy::update_move_follow_pos(Vector2 p_pos) {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				ptr->last_follow_valid = true;
+				ptr->last_follow_pos = p_pos;
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				ptr->last_follow_valid = true;
+				ptr->last_follow_pos = p_pos;
 			}
 		} break;
 		default:

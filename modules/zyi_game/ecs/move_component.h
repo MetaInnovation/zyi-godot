@@ -20,6 +20,10 @@ struct ZyiMoveBasicComponent {
 	Vector2 cur_velocity;
 	// 跟随的物体，如果没有，则按照指定方向移动
 	Node2D *follow_target = nullptr;
+	// 前一次跟随是否有效，决定是否使用 last_follow_pos
+	bool last_follow_valid = false;
+	// 前一次跟随的位置，当 always_following 为 true 且 follow_target 为 nullptr 时，使用该位置
+	Vector2 last_follow_pos;
 	// 最大移动速度——速度向量的最大长度
 	double max_velocity_rate;
 	// 移动速度放大比例——特殊情况时加持
@@ -35,6 +39,7 @@ struct ZyiMoveBasicComponent {
 
 	_ALWAYS_INLINE_ void reset() {
 		follow_target = nullptr;
+		last_follow_valid = false;
 		moving = false;
 		freezed = false;
 		move_disabled = false;
@@ -75,10 +80,6 @@ struct ZyiNormalMoveComponent : public ZyiMoveBasicComponent {
 	Node2D *move_node;
 	// 强行停止跟随的回调
 	Callable force_stop_follow_callback;
-	// 前一次跟随是否有效，决定是否使用 last_follow_pos
-	bool last_follow_valid = false;
-	// 前一次跟随的位置，当 always_following 为 true 且 follow_target 为 nullptr 时，使用该位置
-	Vector2 last_follow_pos;
 	// 跟随时应用角速度的最小距离，否则直接修改运动方向，而非通过角速度慢慢旋转运动方向
 	int64_t min_rotation_follow_dist_squared = 900;
 	// 预设置的位置
@@ -96,7 +97,6 @@ struct ZyiNormalMoveComponent : public ZyiMoveBasicComponent {
 
 	_ALWAYS_INLINE_ void reset() {
 		ZyiMoveBasicComponent::reset();
-		last_follow_valid = false;
 		force_stop_follow_callback = Callable();
 	}
 	_ALWAYS_INLINE_ void force_stop_follow() {
