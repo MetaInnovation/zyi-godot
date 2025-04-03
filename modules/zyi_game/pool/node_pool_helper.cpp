@@ -52,5 +52,10 @@ void ZyiNodePoolHelper::release_node(Node *node, Ref<ZyiNodePool> pool) {
 	ZyiUtilSignalHelper::object_clear_connections(node, SceneStringName(tree_exiting));
 	ZyiUtilSignalHelper::object_clear_connections(node, SceneStringName(tree_exited));
 	// 延迟加入对象池
+	callable_mp_static(&ZyiNodePoolHelper::lazy_release_pool_node).call_deferred(node, pool);
+}
+
+void ZyiNodePoolHelper::lazy_release_pool_node(Node *node, Ref<ZyiNodePool> pool) {
+	// 延迟加入对象池
 	callable_mp(pool.ptr(), &ZyiNodePool::release_node).call_deferred(node, false);
 }
