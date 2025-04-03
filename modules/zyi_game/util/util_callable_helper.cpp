@@ -13,17 +13,17 @@ Variant ZyiUtilCallableHelper::try_callv(Object *p_object, String method, const 
 }
 
 void ZyiUtilCallableHelper::erase_callable_from_array(Array p_value, const Variant &p_callable) {
-	Callable *handler = Object::cast_to<Callable>(p_callable);
-	if (!handler) {
+	if (p_callable.get_type() != Variant::CALLABLE) {
 		p_value.erase(p_callable);
 		return;
 	}
+	Callable handler = p_callable.operator Callable();
 	for (int64_t i = 0; i < p_value.size(); i++) {
 		Variant item = p_value[i];
 		if (item.get_type() == Variant::CALLABLE) {
-			Callable callable = item;
-			if (callable.get_object_id() == handler->get_object_id() && callable.get_method() == handler->get_method()) {
-				p_value.erase(i);
+			Callable callable = item.operator Callable();
+			if (callable.get_object_id() == handler.get_object_id() && callable.get_method() == handler.get_method()) {
+				p_value.remove_at(i);
 				return;
 			}
 		}
