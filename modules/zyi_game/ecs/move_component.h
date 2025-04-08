@@ -51,13 +51,22 @@ struct ZyiMoveBasicComponent {
 	_ALWAYS_INLINE_ bool check_can_move() {
 		return moving and not freezed and not move_disabled;
 	}
+	_ALWAYS_INLINE_ void set_freezed(bool value) {
+		if (freezed == value) {
+			return;
+		}
+		freezed = value;
+		if (moving_changed_callback.is_valid()) {
+			moving_changed_callback.call_deferred(moving && !freezed);
+		}
+	}
 	_ALWAYS_INLINE_ void set_moving(bool value) {
 		if (moving == value) {
 			return;
 		}
 		moving = value;
 		if (moving_changed_callback.is_valid()) {
-			moving_changed_callback.call_deferred(moving);
+			moving_changed_callback.call_deferred(moving && !freezed);
 		}
 	}
 	_ALWAYS_INLINE_ void set_cur_velocity(Vector2 value) {

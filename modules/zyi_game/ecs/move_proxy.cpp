@@ -384,13 +384,13 @@ void ZyiMoveComponentProxy::update_move_freezed(bool p_value) {
 		case MOVE_NODE_TYPE_NORMAL: {
 			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
 			if (ptr) {
-				ptr->freezed = p_value;
+				ptr->set_freezed(p_value);
 			}
 		} break;
 		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
 			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
 			if (ptr) {
-				ptr->freezed = p_value;
+				ptr->set_freezed(p_value);
 			}
 		} break;
 		default:
@@ -454,9 +454,6 @@ void ZyiMoveComponentProxy::unlock_move_direction() {
 }
 
 void ZyiMoveComponentProxy::start_move_basic() {
-	if (freezed) {
-		return;
-	}
 	switch (node_type) {
 		case MOVE_NODE_TYPE_NORMAL: {
 			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
