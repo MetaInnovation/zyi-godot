@@ -294,7 +294,10 @@ _ALWAYS_INLINE_ bool ZyiMoveSystem::is_boid_idle_physics_process(uint64_t p_phys
 
 _ALWAYS_INLINE_ Vector2 ZyiMoveSystem::resolve_extra_force(const ObjectID &p_object_id, const Vector2 &p_pos, const Vector2 &p_origin_force, double p_delta) const {
 	Vector2 force = boids_grid->get_repulsive_force(p_object_id, p_pos);
-	return p_origin_force.lerp(force * 100.0, 2.0 * p_delta);
+	if (force.length_squared() < 1) {
+		force = Vector2(0, 0);
+	}
+	return p_origin_force.lerp(force * 100.0, p_delta);
 }
 
 void ZyiMoveSystem::idle_process_update(double p_delta) {
