@@ -172,13 +172,14 @@ _ALWAYS_INLINE_ void ZyiMoveSystem::idle_physics_process_update_normal_move(doub
 		}
 		follow_target = component.follow_target;
 		Vector2 self_pos = node->get_global_position();
-		Vector2 follow_target_pos = component.resolve_follow_target_position(self_pos);
+		ZyiInternalMoveFollowResult follow_result = component.resolve_follow_result(self_pos);
 		Vector2 direction = component.cur_velocity.normalized();
 		Vector2 origin_direction = Vector2(direction);
 		double follow_dist_squared = -1.0;
 		double dist_angle = -1.0;
+		Vector2 follow_target_pos = follow_result.follow_target_position;
 		Vector2 follow_direction = self_pos.direction_to(follow_target_pos);
-		if (component.is_valid_follow_target_position(follow_target_pos, self_pos)) {
+		if (follow_result.valid_follow) {
 			component.cur_rotation_rate = lerp_velocity_like_rate(component.cur_rotation_rate, component.max_rotation_rate, p_delta, component.rotation_acceleration_rate);
 			double angle = direction.angle_to(follow_direction);
 			if (angle <= MIN_ROTATION_ANGLE || angle < component.cur_rotation_rate) {
@@ -191,7 +192,7 @@ _ALWAYS_INLINE_ void ZyiMoveSystem::idle_physics_process_update_normal_move(doub
 				component.force_stop_follow();
 			}
 			dist_angle = direction.angle_to(follow_direction);
-		} else if (!self_pos.is_equal_approx(follow_target_pos)) {
+		} else if (follow_result.can_follow) {
 			Vector2 follow_direction = self_pos.direction_to(follow_target_pos);
 			// 距离太近，则直接角度转过去
 			direction = follow_direction;
@@ -202,8 +203,11 @@ _ALWAYS_INLINE_ void ZyiMoveSystem::idle_physics_process_update_normal_move(doub
 		double cur_velocity_rate = component.cur_velocity.length();
 		cur_velocity_rate = lerp_velocity_like_rate(cur_velocity_rate, component.max_velocity_rate, p_delta, component.acceleration_rate);
 		component.set_cur_velocity(direction * cur_velocity_rate);
-		if (is_boid_idle_physics_process(physics_frames) && component.is_boid_grid_child()) {
-			Vector2 force = resolve_extra_force(node->get_instance_id(), self_pos, component.extra_force, p_delta);
+		if (is_boid_idle_physics_process(physics_frames)) {
+			Vector2 force = Vector2(0, 0);
+			if (component.is_forced_in_boid_grid()) {
+				force = resolve_extra_force(node->get_instance_id(), self_pos, component.extra_force, p_delta);
+			}
 			component.set_extra_force(force);
 		}
 		// 移动预测：如果移动后相当于远离，且方向夹角小于 90 度 距离也小于速度，则强制更新 global_position
@@ -251,17 +255,20 @@ _ALWAYS_INLINE_ void ZyiMoveSystem::idle_physics_process_update_character_move(d
 		double cur_velocity_rate = component.cur_velocity.length();
 		// 应用跟随
 		Vector2 self_pos = character_body->get_global_position();
-		Vector2 follow_target_pos = component.resolve_follow_target_position(self_pos);
-		if (component.is_valid_follow_target_position(follow_target_pos, self_pos)) {
+		ZyiInternalMoveFollowResult follow_result = component.resolve_follow_result(self_pos);
+		Vector2 follow_target_pos = follow_result.follow_target_position;
+		if (follow_result.valid_follow) {
 			direction = character_body->get_global_position().direction_to(follow_target_pos);
-		}
-		if (direction.is_zero_approx()) {
-			continue;
+		} else if (follow_result.can_follow) {
+			direction = Vector2(0, 0);
 		}
 		cur_velocity_rate = lerp_velocity_like_rate(cur_velocity_rate, component.max_velocity_rate, p_delta, component.acceleration_rate);
 		component.set_cur_velocity(direction * cur_velocity_rate);
-		if (is_boid_idle_physics_process(physics_frames) && component.is_boid_grid_child()) {
-			Vector2 force = resolve_extra_force(character_body->get_instance_id(), self_pos, component.extra_force, p_delta);
+		if (is_boid_idle_physics_process(physics_frames)) {
+			Vector2 force = Vector2(0, 0);
+			if (component.is_forced_in_boid_grid()) {
+				force = resolve_extra_force(character_body->get_instance_id(), self_pos, component.extra_force, p_delta);
+			}
 			component.set_extra_force(force);
 		}
 		// 击退

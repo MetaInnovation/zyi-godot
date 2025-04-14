@@ -28,16 +28,20 @@ public:
 
 	static Ref<ZyiMoveComponentProxy> create();
 
-	void register_to_system(const Ref<ZyiMoveSystem> &p_system, Node2D *p_node, bool p_can_knockback = false, BitField<ZyiMoveConstant::Flags> p_flags = ZyiMoveConstant::MOVE_FLAG_NORMAL);
+	void register_to_system(const Ref<ZyiMoveSystem> &p_system, Node2D *p_node, bool p_can_knockback = false, BitField<ZyiMoveConstant::Flags> p_flags = ZyiMoveConstant::MOVE_FLAG_NORMAL, int64_t p_min_follow_dist_squared = 2500);
 	void on_node_tree_exiting();
 	void stop_follow();
 	void unregister();
 	bool is_registered();
 	void handle_force_stop_follow();
 	void handle_moving_changed(bool moving);
-	void handle_moved(Vector2 velocity, Vector2 old_velocity);
+	void handle_moved(const Vector2 &velocity, const Vector2 &old_velocity);
 	void handle_knockback_moving_changed(bool moving);
 	bool check_can_knockback() const;
+	void update_flags(BitField<ZyiMoveConstant::Flags> p_flags);
+	void add_flags(BitField<ZyiMoveConstant::Flags> p_flags);
+	void remove_flags(BitField<ZyiMoveConstant::Flags> p_flags);
+	BitField<ZyiMoveConstant::Flags> get_flags();
 	void update_knockback_enabled(bool p_value);
 	ZyiNormalMoveComponent *get_normal_move_component_ptr();
 	ZyiCharacterMoveComponent *get_character_move_component_ptr();
@@ -45,16 +49,16 @@ public:
 	Node2D *get_move_node();
 	Vector2 resolve_velocity();
 	double resolve_max_velocity_rate();
-	void update_move_linear(Vector2 p_initial_velocity, double p_acceleration_rate, double p_max_velocity_rate);
+	void update_move_linear(const Vector2 &p_initial_velocity, double p_acceleration_rate, double p_max_velocity_rate);
 	void update_move_linear_max_velocity_rate(double p_max_velocity_rate);
 	double get_move_velocity_scale_add_rate();
 	void update_move_velocity_scale_add_rate(double p_velocity_scale_add_rate);
 	void update_move_rotate(double p_initial_rotation_rate, double p_rotation_acceleration_rate, double p_max_rotation_rate);
-	void update_move_follow(Node2D *p_follow_target);
-	void update_move_follow_pos(Vector2 p_pos);
+	void update_move_follow(Node2D *p_follow_target, const Vector2 &p_follow_offset = Vector2(0, 0));
+	void update_move_follow_pos(const Vector2 &p_pos);
 	void update_move_freezed(bool p_value);
 	void update_move_disabled(bool p_value);
-	void update_move_knockback(Vector2 p_init_knockback_velocity, double p_knockback_deceleration_rate);
+	void update_move_knockback(const Vector2 &p_init_knockback_velocity, double p_knockback_deceleration_rate);
 	void update_move_knockback_disabled(bool p_value);
 	void lock_move_direction();
 	void unlock_move_direction();
@@ -63,8 +67,8 @@ public:
 	void stop_move_basic();
 	void stop_move_knockback();
 	void stop_move();
-	bool start_move_towards_point(Vector2 p_pos);
-	void start_move_towards_direction(Vector2 p_direction);
+	bool start_move_towards_point(const Vector2 &p_pos);
+	void start_move_towards_direction(const Vector2 &p_direction);
 	~ZyiMoveComponentProxy();
 };
 

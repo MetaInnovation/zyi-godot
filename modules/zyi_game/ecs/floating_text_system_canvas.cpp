@@ -84,7 +84,7 @@ void ZyiFloatingTextSystemCanvas::_notification(int p_notification) {
 	}
 }
 
-void ZyiFloatingTextSystemCanvas::show_damage_text(String p_value, Vector2 p_pos, Color p_color) {
+void ZyiFloatingTextSystemCanvas::show_damage_text(String p_value, const Vector2 &p_pos, Color p_color) {
 	if (max_damage_text_count >= 0 && _damage_text_list.size() >= max_damage_text_count) {
 		return;
 	}
@@ -102,7 +102,7 @@ Rect2 ZyiFloatingTextSystemCanvas::get_scaled_rect(double p_scale) {
 	return _scale_cache[p_scale];
 }
 
-void ZyiFloatingTextSystemCanvas::draw_scaled_damage_text_optimized(String p_text, Vector2 p_center, double p_scale, Color p_color) {
+void ZyiFloatingTextSystemCanvas::draw_scaled_damage_text_optimized(String p_text, const Vector2 &p_center, double p_scale, Color p_color) {
 	int len = p_text.length();
 	double total_spacing = digit_size.x * p_scale * len;
 	double start_x = p_center.x - total_spacing / 2.0;

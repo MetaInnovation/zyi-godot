@@ -11,19 +11,27 @@ enum ZyiMoveNodeType {
 	MOVE_NODE_TYPE_CHARACTER_BODY_2D,
 };
 
+struct ZyiInternalMoveFollowResult {
+	Vector2 follow_target_position;
+	bool can_follow;
+	bool valid_follow;
+};
+
 struct ZyiMoveBasicComponent {
 	bool moving = false;
 	bool freezed = false;
 	bool move_disabled = false;
-	BitField<ZyiMoveConstant::Flags> flags = ZyiMoveConstant::MOVE_FLAG_NORMAL;
+	int32_t flags = ZyiMoveConstant::MOVE_FLAG_NORMAL;
 	// 当前移动速度
 	Vector2 cur_velocity;
 	// 外部力
 	Vector2 extra_force;
 	// 跟随的物体，如果没有，则按照指定方向移动
 	Node2D *follow_target = nullptr;
+	// 跟随的偏移量
+	Vector2 follow_offset;
 	// 应用跟随的最小距离平方
-	int64_t min_follow_dist_squared = 900;
+	int64_t min_follow_dist_squared = 2500;
 	// 前一次跟随是否有效，决定是否使用 last_follow_pos
 	bool last_follow_valid = false;
 	// 前一次跟随的位置，当 follow_target 为 nullptr 时，使用该位置
@@ -41,11 +49,8 @@ struct ZyiMoveBasicComponent {
 	_ALWAYS_INLINE_ bool is_in_boid_grid() {
 		return flags & (ZyiMoveConstant::MOVE_FLAG_BOID_GRID_CHILD | ZyiMoveConstant::MOVE_FLAG_BOID_GRID_STATIC);
 	}
-	_ALWAYS_INLINE_ bool is_boid_grid_child() {
-		return flags & ZyiMoveConstant::MOVE_FLAG_BOID_GRID_CHILD;
-	}
-	_ALWAYS_INLINE_ bool is_boid_grid_static() {
-		return flags & ZyiMoveConstant::MOVE_FLAG_BOID_GRID_STATIC;
+	_ALWAYS_INLINE_ bool is_forced_in_boid_grid() {
+		return (flags & ZyiMoveConstant::MOVE_FLAG_BOID_GRID_CHILD) && !(flags & ZyiMoveConstant::MOVE_FLAG_UNFORCED);
 	}
 	_ALWAYS_INLINE_ void reset() {
 		follow_target = nullptr;
@@ -78,10 +83,10 @@ struct ZyiMoveBasicComponent {
 			moving_changed_callback.call_deferred(moving && !freezed);
 		}
 	}
-	_ALWAYS_INLINE_ void set_extra_force(Vector2 p_value) {
+	_ALWAYS_INLINE_ void set_extra_force(const Vector2 &p_value) {
 		extra_force = p_value;
 	}
-	_ALWAYS_INLINE_ void set_cur_velocity(Vector2 p_value) {
+	_ALWAYS_INLINE_ void set_cur_velocity(const Vector2 &p_value) {
 		Vector2 old_velocity = cur_velocity;
 		cur_velocity = p_value;
 		if (moved_callback.is_valid()) {
@@ -94,23 +99,28 @@ struct ZyiMoveBasicComponent {
 	_ALWAYS_INLINE_ double resolve_max_velocity_rate() {
 		return max_velocity_rate * (1.0 + velocity_scale_add_rate);
 	}
-	_ALWAYS_INLINE_ Vector2 resolve_follow_target_position(const Vector2 &self_pos) {
+	_ALWAYS_INLINE_ ZyiInternalMoveFollowResult resolve_follow_result(const Vector2 &self_pos) {
 		Vector2 follow_target_pos = self_pos;
 		bool can_follow = false;
+		bool valid_follow = false;
 		if (follow_target && !follow_target->is_queued_for_deletion() && follow_target->is_visible_in_tree()) {
-			follow_target_pos = follow_target->get_global_position();
+			last_follow_pos = follow_target->get_global_position();
 			last_follow_valid = true;
-			last_follow_pos = follow_target_pos;
+			follow_target_pos = last_follow_pos + follow_offset;
 			can_follow = true;
 		} else if (last_follow_valid) {
-			follow_target_pos = last_follow_pos;
 			last_follow_valid = false;
+			follow_target_pos = last_follow_pos + follow_offset;
 			can_follow = true;
 		}
-		return follow_target_pos;
+		if (can_follow) {
+			valid_follow = is_valid_follow_target_position(follow_target_pos, self_pos);
+		}
+		return ZyiInternalMoveFollowResult{ follow_target_pos, can_follow, valid_follow };
 	}
 	_ALWAYS_INLINE_ bool is_valid_follow_target_position(const Vector2 &follow_target_pos, const Vector2 &self_pos) {
-		return follow_target_pos.distance_squared_to(self_pos) > min_follow_dist_squared;
+		float dist = follow_target_pos.distance_squared_to(self_pos);
+		return dist > cur_velocity.length_squared() && dist > min_follow_dist_squared;
 	}
 };
 
@@ -177,7 +187,7 @@ struct ZyiKnockbackMoveComponent {
 			knockback_moving_changed_callback.call_deferred(moving);
 		}
 	}
-	_ALWAYS_INLINE_ void set_cur_knockback_velocity(Vector2 value) {
+	_ALWAYS_INLINE_ void set_cur_knockback_velocity(const Vector2 &value) {
 		cur_knockback_velocity = value;
 	}
 	_ALWAYS_INLINE_ Vector2 resolve_knockback_velocity() {
@@ -214,7 +224,7 @@ struct ZyiCharacterMoveComponent : public ZyiMoveBasicComponent {
 			knockback_moving_changed_callback.call_deferred(knockback_moving);
 		}
 	}
-	_ALWAYS_INLINE_ void set_cur_knockback_velocity(Vector2 value) {
+	_ALWAYS_INLINE_ void set_cur_knockback_velocity(const Vector2 &value) {
 		cur_knockback_velocity = value;
 	}
 	_ALWAYS_INLINE_ Vector2 resolve_knockback_velocity() {

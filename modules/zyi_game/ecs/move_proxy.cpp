@@ -2,10 +2,14 @@
 
 void ZyiMoveComponentProxy::_bind_methods() {
 	ClassDB::bind_static_method("ZyiMoveComponentProxy", D_METHOD("create"), &ZyiMoveComponentProxy::create);
-	ClassDB::bind_method(D_METHOD("register_to_system", "system", "node", "can_knockback", "p_flags"), &ZyiMoveComponentProxy::register_to_system, DEFVAL(false), DEFVAL(ZyiMoveConstant::MOVE_FLAG_NORMAL));
+	ClassDB::bind_method(D_METHOD("register_to_system", "system", "node", "can_knockback", "flags", "min_follow_dist_squared"), &ZyiMoveComponentProxy::register_to_system, DEFVAL(false), DEFVAL(ZyiMoveConstant::MOVE_FLAG_NORMAL), DEFVAL(2500));
 	ClassDB::bind_method(D_METHOD("unregister"), &ZyiMoveComponentProxy::unregister);
 	ClassDB::bind_method(D_METHOD("is_registered"), &ZyiMoveComponentProxy::is_registered);
 	ClassDB::bind_method(D_METHOD("check_can_knockback"), &ZyiMoveComponentProxy::check_can_knockback);
+	ClassDB::bind_method(D_METHOD("update_flags", "flags"), &ZyiMoveComponentProxy::update_flags);
+	ClassDB::bind_method(D_METHOD("add_flags", "flags"), &ZyiMoveComponentProxy::add_flags);
+	ClassDB::bind_method(D_METHOD("remove_flags", "flags"), &ZyiMoveComponentProxy::remove_flags);
+	ClassDB::bind_method(D_METHOD("get_flags"), &ZyiMoveComponentProxy::get_flags);
 	ClassDB::bind_method(D_METHOD("update_knockback_enabled", "value"), &ZyiMoveComponentProxy::update_knockback_enabled);
 	ClassDB::bind_method(D_METHOD("get_move_node"), &ZyiMoveComponentProxy::get_move_node);
 	ClassDB::bind_method(D_METHOD("resolve_velocity"), &ZyiMoveComponentProxy::resolve_velocity);
@@ -15,7 +19,7 @@ void ZyiMoveComponentProxy::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_move_velocity_scale_add_rate"), &ZyiMoveComponentProxy::get_move_velocity_scale_add_rate);
 	ClassDB::bind_method(D_METHOD("update_move_velocity_scale_add_rate", "velocity_scale_add_rate"), &ZyiMoveComponentProxy::update_move_velocity_scale_add_rate);
 	ClassDB::bind_method(D_METHOD("update_move_rotate", "initial_rotation_rate", "rotation_acceleration_rate", "max_rotation_rate"), &ZyiMoveComponentProxy::update_move_rotate);
-	ClassDB::bind_method(D_METHOD("update_move_follow", "follow_target"), &ZyiMoveComponentProxy::update_move_follow);
+	ClassDB::bind_method(D_METHOD("update_move_follow", "follow_target", "follow_offset"), &ZyiMoveComponentProxy::update_move_follow, DEFVAL(Vector2(0, 0)));
 	ClassDB::bind_method(D_METHOD("update_move_follow_pos", "pos"), &ZyiMoveComponentProxy::update_move_follow_pos);
 	ClassDB::bind_method(D_METHOD("update_move_freezed", "value"), &ZyiMoveComponentProxy::update_move_freezed);
 	ClassDB::bind_method(D_METHOD("update_move_disabled", "value"), &ZyiMoveComponentProxy::update_move_disabled);
@@ -44,7 +48,7 @@ Ref<ZyiMoveComponentProxy> ZyiMoveComponentProxy::create() {
 	return result;
 }
 
-void ZyiMoveComponentProxy::register_to_system(const Ref<ZyiMoveSystem> &p_system, Node2D *p_node, bool p_can_knockback, BitField<ZyiMoveConstant::Flags> p_flags) {
+void ZyiMoveComponentProxy::register_to_system(const Ref<ZyiMoveSystem> &p_system, Node2D *p_node, bool p_can_knockback, BitField<ZyiMoveConstant::Flags> p_flags, int64_t p_min_follow_dist_squared) {
 	system = p_system;
 	can_knockback = p_can_knockback;
 	node = p_node;
@@ -53,6 +57,7 @@ void ZyiMoveComponentProxy::register_to_system(const Ref<ZyiMoveSystem> &p_syste
 		character_move_component_id = system->acquire_character_move_component();
 		ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
 		ptr->flags = p_flags;
+		ptr->min_follow_dist_squared = p_min_follow_dist_squared;
 		ptr->moved_callback = callable_mp(this, &ZyiMoveComponentProxy::handle_moved);
 		ptr->moving_changed_callback = callable_mp(this, &ZyiMoveComponentProxy::handle_moving_changed);
 		ptr->knockback_moving_changed_callback = callable_mp(this, &ZyiMoveComponentProxy::handle_knockback_moving_changed);
@@ -61,9 +66,10 @@ void ZyiMoveComponentProxy::register_to_system(const Ref<ZyiMoveSystem> &p_syste
 		normal_move_component_id = system->acquire_normal_move_component();
 		{
 			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			ptr->flags = p_flags;
+			ptr->min_follow_dist_squared = p_min_follow_dist_squared;
 			ptr->moved_callback = callable_mp(this, &ZyiMoveComponentProxy::handle_moved);
 			ptr->moving_changed_callback = callable_mp(this, &ZyiMoveComponentProxy::handle_moving_changed);
-			ptr->flags = p_flags;
 		}
 		if (check_can_knockback()) {
 			knockback_move_component_id = system->acquire_knockback_move_component();
@@ -121,7 +127,7 @@ void ZyiMoveComponentProxy::handle_moving_changed(bool moving) {
 	emit_signal(SNAME("moving_changed"), moving);
 }
 
-void ZyiMoveComponentProxy::handle_moved(Vector2 velocity, Vector2 old_velocity) {
+void ZyiMoveComponentProxy::handle_moved(const Vector2 &velocity, const Vector2 &old_velocity) {
 	emit_signal(SNAME("moved"), velocity, old_velocity);
 	if (VariantUtilityFunctions::signi(velocity.x) != VariantUtilityFunctions::signi(old_velocity.x)) {
 		emit_signal(SNAME("move_h_changed"), velocity, old_velocity);
@@ -137,6 +143,84 @@ void ZyiMoveComponentProxy::handle_knockback_moving_changed(bool moving) {
 
 bool ZyiMoveComponentProxy::check_can_knockback() const {
 	return can_knockback;
+}
+
+void ZyiMoveComponentProxy::update_flags(BitField<ZyiMoveConstant::Flags> p_flags) {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				ptr->flags = p_flags;
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				ptr->flags = p_flags;
+			}
+		} break;
+		default:
+			break;
+	}
+}
+
+void ZyiMoveComponentProxy::add_flags(BitField<ZyiMoveConstant::Flags> p_flags) {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				ptr->flags |= p_flags;
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				ptr->flags |= p_flags;
+			}
+		} break;
+		default:
+			break;
+	}
+}
+
+void ZyiMoveComponentProxy::remove_flags(BitField<ZyiMoveConstant::Flags> p_flags) {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				ptr->flags &= ~p_flags;
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				ptr->flags &= ~p_flags;
+			}
+		} break;
+		default:
+			break;
+	}
+}
+
+BitField<ZyiMoveConstant::Flags> ZyiMoveComponentProxy::get_flags() {
+	BitField<ZyiMoveConstant::Flags> result;
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				result = ptr->flags;
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				result = ptr->flags;
+			}
+		} break;
+		default:
+			break;
+	}
+	return result;
 }
 
 void ZyiMoveComponentProxy::update_knockback_enabled(bool p_value) {
@@ -208,7 +292,7 @@ double ZyiMoveComponentProxy::resolve_max_velocity_rate() {
 	return 0.0;
 }
 
-void ZyiMoveComponentProxy::update_move_linear(Vector2 p_initial_velocity, double p_acceleration_rate, double p_max_velocity_rate) {
+void ZyiMoveComponentProxy::update_move_linear(const Vector2 &p_initial_velocity, double p_acceleration_rate, double p_max_velocity_rate) {
 	switch (node_type) {
 		case MOVE_NODE_TYPE_NORMAL: {
 			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
@@ -306,13 +390,14 @@ void ZyiMoveComponentProxy::update_move_rotate(double p_initial_rotation_rate, d
 	ptr->max_rotation_rate = p_max_rotation_rate;
 }
 
-void ZyiMoveComponentProxy::update_move_follow(Node2D *p_follow_target) {
+void ZyiMoveComponentProxy::update_move_follow(Node2D *p_follow_target, const Vector2 &p_follow_offset) {
 	switch (node_type) {
 		case MOVE_NODE_TYPE_NORMAL: {
 			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
 			if (ptr) {
 				if (p_follow_target && !p_follow_target->is_queued_for_deletion()) {
 					ptr->follow_target = p_follow_target;
+					ptr->follow_offset = p_follow_offset;
 					ptr->force_stop_follow_callback = callable_mp(this, &ZyiMoveComponentProxy::handle_force_stop_follow);
 					if (p_follow_target->is_visible_in_tree()) {
 						ptr->last_follow_valid = true;
@@ -327,6 +412,7 @@ void ZyiMoveComponentProxy::update_move_follow(Node2D *p_follow_target) {
 					}
 					ptr->force_stop_follow_callback = Callable();
 					ptr->follow_target = nullptr;
+					ptr->follow_offset = p_follow_offset;
 					ptr->last_follow_valid = false;
 				}
 			}
@@ -336,6 +422,7 @@ void ZyiMoveComponentProxy::update_move_follow(Node2D *p_follow_target) {
 			if (ptr) {
 				if (p_follow_target && !p_follow_target->is_queued_for_deletion()) {
 					ptr->follow_target = p_follow_target;
+					ptr->follow_offset = p_follow_offset;
 					if (p_follow_target->is_visible_in_tree()) {
 						ptr->last_follow_valid = true;
 						ptr->last_follow_pos = p_follow_target->get_global_position();
@@ -348,6 +435,7 @@ void ZyiMoveComponentProxy::update_move_follow(Node2D *p_follow_target) {
 						ZyiUtilSignalHelper::object_safe_disconnect(static_cast<Object *>(ptr->follow_target), SceneStringName(tree_exiting), callable_mp(this, &ZyiMoveComponentProxy::stop_follow));
 					}
 					ptr->follow_target = nullptr;
+					ptr->follow_offset = p_follow_offset;
 					ptr->last_follow_valid = false;
 				}
 			}
@@ -357,7 +445,7 @@ void ZyiMoveComponentProxy::update_move_follow(Node2D *p_follow_target) {
 	}
 }
 
-void ZyiMoveComponentProxy::update_move_follow_pos(Vector2 p_pos) {
+void ZyiMoveComponentProxy::update_move_follow_pos(const Vector2 &p_pos) {
 	switch (node_type) {
 		case MOVE_NODE_TYPE_NORMAL: {
 			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
@@ -417,7 +505,7 @@ void ZyiMoveComponentProxy::update_move_disabled(bool p_value) {
 	}
 }
 
-void ZyiMoveComponentProxy::update_move_knockback(Vector2 p_init_knockback_velocity, double p_knockback_deceleration_rate) {
+void ZyiMoveComponentProxy::update_move_knockback(const Vector2 &p_init_knockback_velocity, double p_knockback_deceleration_rate) {
 	if (knockback_disabled) {
 		return;
 	}
@@ -546,7 +634,7 @@ void ZyiMoveComponentProxy::stop_move() {
 	stop_move_knockback();
 }
 
-bool ZyiMoveComponentProxy::start_move_towards_point(Vector2 p_pos) {
+bool ZyiMoveComponentProxy::start_move_towards_point(const Vector2 &p_pos) {
 	if (node && !node->is_queued_for_deletion() && node->is_visible_in_tree()) {
 		Vector2 pos = node->get_global_position();
 		if (pos.is_equal_approx(p_pos)) {
@@ -559,7 +647,7 @@ bool ZyiMoveComponentProxy::start_move_towards_point(Vector2 p_pos) {
 	}
 }
 
-void ZyiMoveComponentProxy::start_move_towards_direction(Vector2 p_direction) {
+void ZyiMoveComponentProxy::start_move_towards_direction(const Vector2 &p_direction) {
 	if (p_direction.is_zero_approx()) {
 		stop_move();
 		return;
