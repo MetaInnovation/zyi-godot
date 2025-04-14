@@ -120,7 +120,7 @@ struct ZyiMoveBasicComponent {
 	}
 	_ALWAYS_INLINE_ bool is_valid_follow_target_position(const Vector2 &follow_target_pos, const Vector2 &self_pos) {
 		float dist = follow_target_pos.distance_squared_to(self_pos);
-		return dist > cur_velocity.length_squared() && dist > min_follow_dist_squared;
+		return dist > resolve_velocity().length_squared() && dist > min_follow_dist_squared;
 	}
 };
 
