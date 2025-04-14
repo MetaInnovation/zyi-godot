@@ -83,7 +83,7 @@ void ZyiUtilConfigurableAttributeAccessor::clear(bool include_config) {
 		_map.clear();
 	} else {
 		for (HashMap<StringName, ZyiUtilConfigurableAttributeAccessor::Data>::Iterator it = _map.begin(); it != _map.end(); ++it) {
-			Data data = it->value;
+			Data &data = it->value;
 			if (!data.removed) {
 				data.value = Variant();
 				data.removed = true;
