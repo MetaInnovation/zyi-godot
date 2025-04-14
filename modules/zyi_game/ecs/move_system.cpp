@@ -34,6 +34,7 @@ const double ZyiMoveSystem::MIN_ROTATION_ANGLE = 0.01;
 
 void ZyiMoveSystem::_bind_methods() {
 	ClassDB::bind_static_method("ZyiMoveSystem", D_METHOD("create", "normal_move_capacity", "character_move_capacity", "knockback_move_capacity"), &ZyiMoveSystem::create, DEFVAL(NORMAL_MOVE_INIT_CAPACITY), DEFVAL(CHARACTER_MOVE_INIT_CAPACITY), DEFVAL(KNOCKBACK_MOVE_INIT_CAPACITY));
+	ClassDB::bind_method(D_METHOD("set_boids_grid", "boids_grid"), &ZyiMoveSystem::set_boids_grid);
 	ClassDB::bind_method(D_METHOD("idle_process_update", "delta"), &ZyiMoveSystem::idle_process_update);
 	ClassDB::bind_method(D_METHOD("idle_physics_process_update", "delta"), &ZyiMoveSystem::idle_physics_process_update);
 	ClassDB::bind_method(D_METHOD("clean"), &ZyiMoveSystem::clean);
@@ -99,18 +100,27 @@ ZyiKnockbackMoveComponent *ZyiMoveSystem::get_knockback_move_component_ptr(int64
 	return knockback_move_component_pool.get_component_ptr(p_id);
 }
 
-void ZyiMoveSystem::idle_process_update(double p_delta) {
+void ZyiMoveSystem::set_boids_grid(Ref<ZyiMoveBoidsGrid> p_boids_grid) {
+	boids_grid = p_boids_grid;
+}
+
+_ALWAYS_INLINE_ void ZyiMoveSystem::idle_process_update_normal_move(double p_delta) {
 	Node2D *node;
 	for (ZyiNormalMoveComponent &component : normal_move_component_pool.pool) {
 		node = component.move_node;
 		if (!component.check_can_move() || !node || node->is_queued_for_deletion() || !node->is_inside_tree()) {
 			continue;
 		}
+		Point2 origin_pos = node->get_global_position();
 		if (component.use_preset_pos_for_single_frame) {
 			component.use_preset_pos_for_single_frame = false;
 			node->set_global_position(component.preset_pos);
 		} else {
-			node->set_global_position(node->get_global_position() + component.resolve_velocity() * p_delta);
+			node->set_global_position(origin_pos + component.resolve_velocity() * p_delta);
+		}
+		if (component.is_in_boid_grid() && boids_grid.is_valid()) {
+			Point2 pos = node->get_global_position();
+			boids_grid->update_object_map(node->get_instance_id(), pos, origin_pos);
 		}
 	}
 	for (ZyiKnockbackMoveComponent &component : knockback_move_component_pool.pool) {
@@ -118,8 +128,16 @@ void ZyiMoveSystem::idle_process_update(double p_delta) {
 		if (!component.moving || !node || node->is_queued_for_deletion() || !node->is_inside_tree()) {
 			continue;
 		}
-		node->set_global_position(node->get_global_position() + component.resolve_knockback_velocity() * p_delta);
+		Point2 origin_pos = node->get_global_position();
+		node->set_global_position(origin_pos + component.resolve_knockback_velocity() * p_delta);
+		if (component.is_in_boid_grid() && boids_grid.is_valid()) {
+			Point2 pos = node->get_global_position();
+			boids_grid->update_object_map(node->get_instance_id(), pos, origin_pos);
+		}
 	}
+}
+
+_ALWAYS_INLINE_ void ZyiMoveSystem::idle_process_update_character_move(double p_delta) {
 	CharacterBody2D *character_body;
 	for (ZyiCharacterMoveComponent &component : character_move_component_pool.pool) {
 		character_body = component.move_node;
@@ -129,68 +147,68 @@ void ZyiMoveSystem::idle_process_update(double p_delta) {
 		if (character_body->get_velocity().is_zero_approx()) {
 			continue;
 		}
-		// TODO 改为 start 前判断？
-		if (PhysicsServer2D::get_singleton()->body_get_space(character_body->get_rid()).is_valid()) {
+		Point2 origin_pos = character_body->get_global_position();
+		if (component.flags & ZyiMoveConstant::MOVE_FLAG_WITHOUT_CHARACTER_COLLIDE) {
+			// 直接移动
+			character_body->set_global_position(origin_pos + character_body->get_velocity() * p_delta);
+		} else if (PhysicsServer2D::get_singleton()->body_get_space(character_body->get_rid()).is_valid()) {
 			character_body->move_and_slide();
+		}
+		if (component.is_in_boid_grid() && boids_grid.is_valid()) {
+			Point2 pos = character_body->get_global_position();
+			boids_grid->update_object_map(character_body->get_instance_id(), pos, origin_pos);
 		}
 	}
 }
 
-void ZyiMoveSystem::idle_physics_process_update(double p_delta) {
+_ALWAYS_INLINE_ void ZyiMoveSystem::idle_physics_process_update_normal_move(double p_delta) {
 	Node2D *node;
 	Node2D *follow_target;
+	uint64_t physics_frames = Engine::get_singleton()->get_physics_frames();
 	for (ZyiNormalMoveComponent &component : normal_move_component_pool.pool) {
 		node = component.move_node;
 		if (!component.check_can_move() || !node || node->is_queued_for_deletion() || !node->is_inside_tree()) {
 			continue;
 		}
 		follow_target = component.follow_target;
-		Vector2 follow_target_pos;
-		bool can_follow = false;
-		if (follow_target && !follow_target->is_queued_for_deletion() && follow_target->is_visible_in_tree()) {
-			follow_target_pos = follow_target->get_global_position();
-			component.last_follow_valid = true;
-			component.last_follow_pos = follow_target_pos;
-			can_follow = true;
-		} else if (component.last_follow_valid) {
-			follow_target_pos = component.last_follow_pos;
-			component.last_follow_valid = false;
-			can_follow = true;
-		}
+		Vector2 self_pos = node->get_global_position();
+		Vector2 follow_target_pos = component.resolve_follow_target_position(self_pos);
 		Vector2 direction = component.cur_velocity.normalized();
 		Vector2 origin_direction = Vector2(direction);
-		Vector2 node_pos = node->get_global_position();
 		double follow_dist_squared = -1.0;
 		double dist_angle = -1.0;
-		if (can_follow) {
-			follow_dist_squared = node_pos.distance_squared_to(follow_target_pos);
-			Vector2 follow_direction = node_pos.direction_to(follow_target_pos);
-			if (follow_dist_squared <= component.min_rotation_follow_dist_squared) {
-				// 如果距离太近，则直接角度转过去
+		Vector2 follow_direction = self_pos.direction_to(follow_target_pos);
+		if (component.is_valid_follow_target_position(follow_target_pos, self_pos)) {
+			component.cur_rotation_rate = lerp_velocity_like_rate(component.cur_rotation_rate, component.max_rotation_rate, p_delta, component.rotation_acceleration_rate);
+			double angle = direction.angle_to(follow_direction);
+			if (angle <= MIN_ROTATION_ANGLE || angle < component.cur_rotation_rate) {
 				direction = follow_direction;
+			} else {
+				direction = direction.rotated(component.cur_rotation_rate);
+			}
+			if (Math::is_zero_approx(dist_angle)) {
 				// 不再跟随
 				component.force_stop_follow();
-			} else {
-				component.cur_rotation_rate = lerp_velocity_like_rate(component.cur_rotation_rate, component.max_rotation_rate, p_delta, component.rotation_acceleration_rate);
-				double angle = direction.angle_to(follow_direction);
-				if (angle <= MIN_ROTATION_ANGLE || angle < component.cur_rotation_rate) {
-					direction = follow_direction;
-				} else {
-					direction = direction.rotated(component.cur_rotation_rate);
-				}
-				if (Math::is_zero_approx(dist_angle)) {
-					// 不再跟随
-					component.force_stop_follow();
-				}
 			}
 			dist_angle = direction.angle_to(follow_direction);
+		} else if (!self_pos.is_equal_approx(follow_target_pos)) {
+			Vector2 follow_direction = self_pos.direction_to(follow_target_pos);
+			// 距离太近，则直接角度转过去
+			direction = follow_direction;
+			// 不再跟随
+			component.force_stop_follow();
+			dist_angle = 0;
 		}
 		double cur_velocity_rate = component.cur_velocity.length();
 		cur_velocity_rate = lerp_velocity_like_rate(cur_velocity_rate, component.max_velocity_rate, p_delta, component.acceleration_rate);
 		component.set_cur_velocity(direction * cur_velocity_rate);
+		if (is_boid_idle_physics_process(physics_frames) && component.is_boid_grid_child()) {
+			Vector2 force = resolve_extra_force(node->get_instance_id(), self_pos, component.extra_force, p_delta);
+			component.set_extra_force(force);
+		}
 		// 移动预测：如果移动后相当于远离，且方向夹角小于 90 度 距离也小于速度，则强制更新 global_position
-		if (follow_dist_squared > 0.0) {
-			bool is_leave = (node_pos + component.resolve_velocity() * p_delta).distance_squared_to(follow_target_pos) > follow_dist_squared;
+		if (follow_dist_squared > 0.0 && !!component.follow_target) {
+			bool is_leave = (self_pos + component.resolve_velocity() * p_delta).distance_squared_to(follow_target_pos) > follow_dist_squared;
 			bool is_near_than_velocity = follow_dist_squared < component.cur_velocity.length_squared();
 			if (is_leave && is_near_than_velocity && Math::abs(dist_angle) < Math_PI / 2.0) {
 				component.use_preset_pos_for_single_frame = true;
@@ -216,7 +234,12 @@ void ZyiMoveSystem::idle_physics_process_update(double p_delta) {
 			component.set_cur_knockback_velocity(direction * cur_velocity_rate);
 		}
 	}
+}
+
+_ALWAYS_INLINE_ void ZyiMoveSystem::idle_physics_process_update_character_move(double p_delta) {
+	Node2D *follow_target;
 	CharacterBody2D *character_body;
+	uint64_t physics_frames = Engine::get_singleton()->get_physics_frames();
 	for (ZyiCharacterMoveComponent &component : character_move_component_pool.pool) {
 		character_body = component.move_node;
 		if ((!component.check_can_move() && !component.knockback_moving) || !character_body || character_body->is_queued_for_deletion() || !character_body->is_inside_tree()) {
@@ -227,19 +250,9 @@ void ZyiMoveSystem::idle_physics_process_update(double p_delta) {
 		Vector2 direction = component.cur_velocity.normalized();
 		double cur_velocity_rate = component.cur_velocity.length();
 		// 应用跟随
-		Vector2 follow_target_pos;
-		bool can_follow = false;
-		if (follow_target && !follow_target->is_queued_for_deletion() && follow_target->is_visible_in_tree()) {
-			follow_target_pos = follow_target->get_global_position();
-			component.last_follow_valid = true;
-			component.last_follow_pos = follow_target_pos;
-			can_follow = true;
-		} else if (component.last_follow_valid) {
-			follow_target_pos = component.last_follow_pos;
-			component.last_follow_valid = false;
-			can_follow = true;
-		}
-		if (can_follow) {
+		Vector2 self_pos = character_body->get_global_position();
+		Vector2 follow_target_pos = component.resolve_follow_target_position(self_pos);
+		if (component.is_valid_follow_target_position(follow_target_pos, self_pos)) {
 			direction = character_body->get_global_position().direction_to(follow_target_pos);
 		}
 		if (direction.is_zero_approx()) {
@@ -247,6 +260,10 @@ void ZyiMoveSystem::idle_physics_process_update(double p_delta) {
 		}
 		cur_velocity_rate = lerp_velocity_like_rate(cur_velocity_rate, component.max_velocity_rate, p_delta, component.acceleration_rate);
 		component.set_cur_velocity(direction * cur_velocity_rate);
+		if (is_boid_idle_physics_process(physics_frames) && component.is_boid_grid_child()) {
+			Vector2 force = resolve_extra_force(character_body->get_instance_id(), self_pos, component.extra_force, p_delta);
+			component.set_extra_force(force);
+		}
 		// 击退
 		Vector2 knockback_direction = component.cur_knockback_velocity.normalized();
 		double cur_knockback_velocity_rate = component.cur_knockback_velocity.length();
@@ -260,6 +277,25 @@ void ZyiMoveSystem::idle_physics_process_update(double p_delta) {
 		// 速度与击退速度叠加
 		character_body->set_velocity(component.resolve_velocity() + component.resolve_knockback_velocity());
 	}
+}
+
+_ALWAYS_INLINE_ bool ZyiMoveSystem::is_boid_idle_physics_process(uint64_t p_physics_frames) {
+	return boids_grid.is_valid();
+}
+
+_ALWAYS_INLINE_ Vector2 ZyiMoveSystem::resolve_extra_force(const ObjectID &p_object_id, const Vector2 &p_pos, const Vector2 &p_origin_force, double p_delta) const {
+	Vector2 force = boids_grid->get_repulsive_force(p_object_id, p_pos);
+	return p_origin_force.lerp(force * 100.0, 2.0 * p_delta);
+}
+
+void ZyiMoveSystem::idle_process_update(double p_delta) {
+	idle_process_update_normal_move(p_delta);
+	idle_process_update_character_move(p_delta);
+}
+
+void ZyiMoveSystem::idle_physics_process_update(double p_delta) {
+	idle_physics_process_update_normal_move(p_delta);
+	idle_physics_process_update_character_move(p_delta);
 }
 
 void ZyiMoveSystem::clean() {

@@ -37,7 +37,9 @@ def get_doc_classes():
         "ZyiNodePool",
         "ZyiGameNodePoolManager",
         "ZyiNodePoolHelper",
-        "ZyiMoveSystem",
-        "ZyiMoveProxy",
+        "ZyiMoveConstant",
+        "ZyiMoveBoidsGrid",
         "ZyiFloatingTextSystemCanvas",
+        "ZyiMoveComponentProxy",
+        "ZyiMoveSystem",
     ]

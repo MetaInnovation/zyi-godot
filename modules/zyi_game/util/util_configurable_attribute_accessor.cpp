@@ -16,7 +16,7 @@ void ZyiUtilConfigurableAttributeAccessor::_bind_methods() {
 }
 
 void ZyiUtilConfigurableAttributeAccessor::config_key(const String &p_key, const Callable &p_getter, const Callable &p_set_callback) {
-	Data *data = _map.lookup_ptr(p_key);
+	Data *data = _map.getptr(p_key);
 	if (!data) {
 		Data new_data{
 			Variant(),
@@ -24,7 +24,7 @@ void ZyiUtilConfigurableAttributeAccessor::config_key(const String &p_key, const
 			p_getter,
 			p_set_callback
 		};
-		_map.set(p_key, new_data);
+		_map[p_key] = new_data;
 	} else {
 		data->getter = p_getter;
 		data->set_callback = p_set_callback;
@@ -37,7 +37,7 @@ void ZyiUtilConfigurableAttributeAccessor::reserve(int64_t capacity) {
 }
 
 Variant ZyiUtilConfigurableAttributeAccessor::get_v(const String &p_key, const Variant &p_default) {
-	Data *data = _map.lookup_ptr(p_key);
+	Data *data = _map.getptr(p_key);
 	if (!data || data->removed) {
 		return p_default;
 	}
@@ -49,7 +49,7 @@ Variant ZyiUtilConfigurableAttributeAccessor::get_v(const String &p_key, const V
 }
 
 void ZyiUtilConfigurableAttributeAccessor::set_v(const String &p_key, const Variant &p_value) {
-	Data *data = _map.lookup_ptr(p_key);
+	Data *data = _map.getptr(p_key);
 	if (!data) {
 		Data new_data{
 			p_value,
@@ -57,7 +57,7 @@ void ZyiUtilConfigurableAttributeAccessor::set_v(const String &p_key, const Vari
 			Callable(),
 			Callable()
 		};
-		_map.set(p_key, new_data);
+		_map[p_key] = new_data;
 	} else {
 		data->removed = false;
 		data->value = p_value;
@@ -69,7 +69,7 @@ void ZyiUtilConfigurableAttributeAccessor::set_v(const String &p_key, const Vari
 }
 
 void ZyiUtilConfigurableAttributeAccessor::remove_v(const String &p_key) {
-	Data *data = _map.lookup_ptr(p_key);
+	Data *data = _map.getptr(p_key);
 	if (!data || data->removed) {
 		return;
 	}
@@ -82,11 +82,11 @@ void ZyiUtilConfigurableAttributeAccessor::clear(bool include_config) {
 	if (include_config) {
 		_map.clear();
 	} else {
-		for (OAHashMap<StringName, ZyiUtilConfigurableAttributeAccessor::Data>::Iterator it = _map.iter(); it.valid; it = _map.next_iter(it)) {
-			Data *data = _map.lookup_ptr(*(it.key));
-			if (data && !data->removed) {
-				data->value = Variant();
-				data->removed = true;
+		for (HashMap<StringName, ZyiUtilConfigurableAttributeAccessor::Data>::Iterator it = _map.begin(); it != _map.end(); ++it) {
+			Data data = it->value;
+			if (!data.removed) {
+				data.value = Variant();
+				data.removed = true;
 			}
 		}
 	}

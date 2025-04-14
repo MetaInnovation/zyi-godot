@@ -28,6 +28,8 @@
 #include "./pool/node_pool_helper.h"
 
 #include "./ecs/floating_text_system_canvas.h"
+#include "./ecs/move_boids_grid.h"
+#include "./ecs/move_constant.h"
 #include "./ecs/move_proxy.h"
 #include "./ecs/move_system.h"
 
@@ -60,9 +62,11 @@ void initialize_zyi_game_module(ModuleInitializationLevel p_level) {
 	GDREGISTER_CLASS(ZyiGameNodePoolManager);
 	GDREGISTER_CLASS(ZyiNodePoolHelper);
 
-	GDREGISTER_CLASS(ZyiMoveSystem);
-	GDREGISTER_CLASS(ZyiMoveComponentProxy);
+	GDREGISTER_CLASS(ZyiMoveConstant);
+	GDREGISTER_CLASS(ZyiMoveBoidsGrid);
 	GDREGISTER_CLASS(ZyiFloatingTextSystemCanvas);
+	GDREGISTER_CLASS(ZyiMoveComponentProxy);
+	GDREGISTER_CLASS(ZyiMoveSystem);
 }
 
 void uninitialize_zyi_game_module(ModuleInitializationLevel p_level) {
