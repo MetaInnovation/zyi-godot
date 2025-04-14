@@ -28,7 +28,7 @@ public:
 
 	static Ref<ZyiMoveComponentProxy> create();
 
-	void register_to_system(const Ref<ZyiMoveSystem> &p_system, Node2D *p_node, bool p_can_knockback = false, BitField<ZyiMoveConstant::Flags> p_flags = ZyiMoveConstant::MOVE_FLAG_NORMAL, int64_t p_min_follow_dist_squared = 2500);
+	void register_to_system(const Ref<ZyiMoveSystem> &p_system, Node2D *p_node, bool p_can_knockback = false, BitField<ZyiMoveConstant::Flags> p_flags = ZyiMoveConstant::MOVE_FLAG_NORMAL, int64_t p_min_follow_dist_squared = 900);
 	void on_node_tree_exiting();
 	void stop_follow();
 	void unregister();

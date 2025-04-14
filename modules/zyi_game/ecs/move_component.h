@@ -31,7 +31,7 @@ struct ZyiMoveBasicComponent {
 	// 跟随的偏移量
 	Vector2 follow_offset;
 	// 应用跟随的最小距离平方
-	int64_t min_follow_dist_squared = 2500;
+	int64_t min_follow_dist_squared = 900;
 	// 前一次跟随是否有效，决定是否使用 last_follow_pos
 	bool last_follow_valid = false;
 	// 前一次跟随的位置，当 follow_target 为 nullptr 时，使用该位置
