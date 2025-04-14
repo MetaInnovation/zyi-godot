@@ -2,7 +2,7 @@
 
 void ZyiMoveComponentProxy::_bind_methods() {
 	ClassDB::bind_static_method("ZyiMoveComponentProxy", D_METHOD("create"), &ZyiMoveComponentProxy::create);
-	ClassDB::bind_method(D_METHOD("register_to_system", "system", "node", "can_knockback"), &ZyiMoveComponentProxy::register_to_system, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("register_to_system", "system", "node", "can_knockback", "p_flags"), &ZyiMoveComponentProxy::register_to_system, DEFVAL(false), DEFVAL(ZyiMoveConstant::MOVE_FLAG_NORMAL));
 	ClassDB::bind_method(D_METHOD("unregister"), &ZyiMoveComponentProxy::unregister);
 	ClassDB::bind_method(D_METHOD("is_registered"), &ZyiMoveComponentProxy::is_registered);
 	ClassDB::bind_method(D_METHOD("check_can_knockback"), &ZyiMoveComponentProxy::check_can_knockback);
@@ -10,7 +10,7 @@ void ZyiMoveComponentProxy::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_move_node"), &ZyiMoveComponentProxy::get_move_node);
 	ClassDB::bind_method(D_METHOD("resolve_velocity"), &ZyiMoveComponentProxy::resolve_velocity);
 	ClassDB::bind_method(D_METHOD("resolve_max_velocity_rate"), &ZyiMoveComponentProxy::resolve_max_velocity_rate);
-	ClassDB::bind_method(D_METHOD("update_move_linear", "initial_velocity", "acceleration_rate", "max_velocity_rate", "p_velocity_random_rate"), &ZyiMoveComponentProxy::update_move_linear);
+	ClassDB::bind_method(D_METHOD("update_move_linear", "initial_velocity", "acceleration_rate", "max_velocity_rate"), &ZyiMoveComponentProxy::update_move_linear);
 	ClassDB::bind_method(D_METHOD("update_move_linear_max_velocity_rate", "max_velocity_rate"), &ZyiMoveComponentProxy::update_move_linear_max_velocity_rate);
 	ClassDB::bind_method(D_METHOD("get_move_velocity_scale_add_rate"), &ZyiMoveComponentProxy::get_move_velocity_scale_add_rate);
 	ClassDB::bind_method(D_METHOD("update_move_velocity_scale_add_rate", "velocity_scale_add_rate"), &ZyiMoveComponentProxy::update_move_velocity_scale_add_rate);
@@ -44,7 +44,7 @@ Ref<ZyiMoveComponentProxy> ZyiMoveComponentProxy::create() {
 	return result;
 }
 
-void ZyiMoveComponentProxy::register_to_system(const Ref<ZyiMoveSystem> &p_system, Node2D *p_node, bool p_can_knockback) {
+void ZyiMoveComponentProxy::register_to_system(const Ref<ZyiMoveSystem> &p_system, Node2D *p_node, bool p_can_knockback, BitField<ZyiMoveConstant::Flags> p_flags) {
 	system = p_system;
 	can_knockback = p_can_knockback;
 	node = p_node;
@@ -52,6 +52,7 @@ void ZyiMoveComponentProxy::register_to_system(const Ref<ZyiMoveSystem> &p_syste
 		node_type = MOVE_NODE_TYPE_CHARACTER_BODY_2D;
 		character_move_component_id = system->acquire_character_move_component();
 		ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+		ptr->flags = p_flags;
 		ptr->moved_callback = callable_mp(this, &ZyiMoveComponentProxy::handle_moved);
 		ptr->moving_changed_callback = callable_mp(this, &ZyiMoveComponentProxy::handle_moving_changed);
 		ptr->knockback_moving_changed_callback = callable_mp(this, &ZyiMoveComponentProxy::handle_knockback_moving_changed);
@@ -62,6 +63,7 @@ void ZyiMoveComponentProxy::register_to_system(const Ref<ZyiMoveSystem> &p_syste
 			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
 			ptr->moved_callback = callable_mp(this, &ZyiMoveComponentProxy::handle_moved);
 			ptr->moving_changed_callback = callable_mp(this, &ZyiMoveComponentProxy::handle_moving_changed);
+			ptr->flags = p_flags;
 		}
 		if (check_can_knockback()) {
 			knockback_move_component_id = system->acquire_knockback_move_component();
@@ -206,7 +208,7 @@ double ZyiMoveComponentProxy::resolve_max_velocity_rate() {
 	return 0.0;
 }
 
-void ZyiMoveComponentProxy::update_move_linear(Vector2 p_initial_velocity, double p_acceleration_rate, double p_max_velocity_rate, double p_velocity_random_rate) {
+void ZyiMoveComponentProxy::update_move_linear(Vector2 p_initial_velocity, double p_acceleration_rate, double p_max_velocity_rate) {
 	switch (node_type) {
 		case MOVE_NODE_TYPE_NORMAL: {
 			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
@@ -216,7 +218,6 @@ void ZyiMoveComponentProxy::update_move_linear(Vector2 p_initial_velocity, doubl
 				}
 				ptr->acceleration_rate = p_acceleration_rate;
 				ptr->max_velocity_rate = p_max_velocity_rate;
-				ptr->velocity_random_rate = p_velocity_random_rate;
 			}
 		} break;
 		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
@@ -227,7 +228,6 @@ void ZyiMoveComponentProxy::update_move_linear(Vector2 p_initial_velocity, doubl
 				}
 				ptr->acceleration_rate = p_acceleration_rate;
 				ptr->max_velocity_rate = p_max_velocity_rate;
-				ptr->velocity_random_rate = p_velocity_random_rate;
 			}
 		} break;
 		default:

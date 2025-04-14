@@ -2,7 +2,7 @@
 #define UTIL_CONFIGURABLE_ATTRIBUTE_ACCESSOR_H
 
 #include "core/object/ref_counted.h"
-#include "core/templates/oa_hash_map.h"
+#include "core/templates/hash_map.h"
 
 class ZyiUtilConfigurableAttributeAccessor : public RefCounted {
 	GDCLASS(ZyiUtilConfigurableAttributeAccessor, RefCounted);
@@ -14,7 +14,7 @@ private:
 		Callable getter;
 		Callable set_callback;
 	};
-	OAHashMap<StringName, Data> _map;
+	HashMap<StringName, Data> _map;
 	void emit_change_without_payload();
 
 protected:

@@ -28,7 +28,7 @@ public:
 
 	static Ref<ZyiMoveComponentProxy> create();
 
-	void register_to_system(const Ref<ZyiMoveSystem> &p_system, Node2D *p_node, bool p_can_knockback = false);
+	void register_to_system(const Ref<ZyiMoveSystem> &p_system, Node2D *p_node, bool p_can_knockback = false, BitField<ZyiMoveConstant::Flags> p_flags = ZyiMoveConstant::MOVE_FLAG_NORMAL);
 	void on_node_tree_exiting();
 	void stop_follow();
 	void unregister();
@@ -45,7 +45,7 @@ public:
 	Node2D *get_move_node();
 	Vector2 resolve_velocity();
 	double resolve_max_velocity_rate();
-	void update_move_linear(Vector2 p_initial_velocity, double p_acceleration_rate, double p_max_velocity_rate, double p_velocity_random_rate = 0.0);
+	void update_move_linear(Vector2 p_initial_velocity, double p_acceleration_rate, double p_max_velocity_rate);
 	void update_move_linear_max_velocity_rate(double p_max_velocity_rate);
 	double get_move_velocity_scale_add_rate();
 	void update_move_velocity_scale_add_rate(double p_velocity_scale_add_rate);

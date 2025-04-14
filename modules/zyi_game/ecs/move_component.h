@@ -2,10 +2,9 @@
 #define MOVE_COMPONENT_H
 
 #include "core/object/ref_counted.h"
+#include "move_constant.h"
 #include "scene/2d/node_2d.h"
 #include "scene/2d/physics/character_body_2d.h"
-#include <memory>
-#include <type_traits>
 
 enum ZyiMoveNodeType {
 	MOVE_NODE_TYPE_NORMAL,
@@ -16,27 +15,38 @@ struct ZyiMoveBasicComponent {
 	bool moving = false;
 	bool freezed = false;
 	bool move_disabled = false;
+	BitField<ZyiMoveConstant::Flags> flags = ZyiMoveConstant::MOVE_FLAG_NORMAL;
 	// 当前移动速度
 	Vector2 cur_velocity;
+	// 外部力
+	Vector2 extra_force;
 	// 跟随的物体，如果没有，则按照指定方向移动
 	Node2D *follow_target = nullptr;
+	// 应用跟随的最小距离平方
+	int64_t min_follow_dist_squared = 900;
 	// 前一次跟随是否有效，决定是否使用 last_follow_pos
 	bool last_follow_valid = false;
-	// 前一次跟随的位置，当 always_following 为 true 且 follow_target 为 nullptr 时，使用该位置
+	// 前一次跟随的位置，当 follow_target 为 nullptr 时，使用该位置
 	Vector2 last_follow_pos;
 	// 最大移动速度——速度向量的最大长度
 	double max_velocity_rate;
 	// 移动速度放大比例——特殊情况时加持
 	double velocity_scale_add_rate = 0.0;
-	// 最大移动速度扰动
-	double velocity_random_rate = 0.0;
 	// 初始移动速度
 	Vector2 initial_velocity;
 	// 加速度——沿着速度方向的
 	double acceleration_rate;
 	Callable moving_changed_callback;
 	Callable moved_callback;
-
+	_ALWAYS_INLINE_ bool is_in_boid_grid() {
+		return flags & (ZyiMoveConstant::MOVE_FLAG_BOID_GRID_CHILD | ZyiMoveConstant::MOVE_FLAG_BOID_GRID_STATIC);
+	}
+	_ALWAYS_INLINE_ bool is_boid_grid_child() {
+		return flags & ZyiMoveConstant::MOVE_FLAG_BOID_GRID_CHILD;
+	}
+	_ALWAYS_INLINE_ bool is_boid_grid_static() {
+		return flags & ZyiMoveConstant::MOVE_FLAG_BOID_GRID_STATIC;
+	}
 	_ALWAYS_INLINE_ void reset() {
 		follow_target = nullptr;
 		last_follow_valid = false;
@@ -44,7 +54,6 @@ struct ZyiMoveBasicComponent {
 		freezed = false;
 		move_disabled = false;
 		velocity_scale_add_rate = 0.0;
-		velocity_random_rate = 0.0;
 		moving_changed_callback = Callable();
 		moved_callback = Callable();
 	}
@@ -69,18 +78,39 @@ struct ZyiMoveBasicComponent {
 			moving_changed_callback.call_deferred(moving && !freezed);
 		}
 	}
-	_ALWAYS_INLINE_ void set_cur_velocity(Vector2 value) {
+	_ALWAYS_INLINE_ void set_extra_force(Vector2 p_value) {
+		extra_force = p_value;
+	}
+	_ALWAYS_INLINE_ void set_cur_velocity(Vector2 p_value) {
 		Vector2 old_velocity = cur_velocity;
-		cur_velocity = value;
+		cur_velocity = p_value;
 		if (moved_callback.is_valid()) {
 			moved_callback.call_deferred(cur_velocity, old_velocity);
 		}
 	}
 	_ALWAYS_INLINE_ Vector2 resolve_velocity() {
-		return cur_velocity * (1.0 + velocity_scale_add_rate);
+		return cur_velocity * (1.0 + velocity_scale_add_rate) + extra_force;
 	}
 	_ALWAYS_INLINE_ double resolve_max_velocity_rate() {
 		return max_velocity_rate * (1.0 + velocity_scale_add_rate);
+	}
+	_ALWAYS_INLINE_ Vector2 resolve_follow_target_position(const Vector2 &self_pos) {
+		Vector2 follow_target_pos = self_pos;
+		bool can_follow = false;
+		if (follow_target && !follow_target->is_queued_for_deletion() && follow_target->is_visible_in_tree()) {
+			follow_target_pos = follow_target->get_global_position();
+			last_follow_valid = true;
+			last_follow_pos = follow_target_pos;
+			can_follow = true;
+		} else if (last_follow_valid) {
+			follow_target_pos = last_follow_pos;
+			last_follow_valid = false;
+			can_follow = true;
+		}
+		return follow_target_pos;
+	}
+	_ALWAYS_INLINE_ bool is_valid_follow_target_position(const Vector2 &follow_target_pos, const Vector2 &self_pos) {
+		return follow_target_pos.distance_squared_to(self_pos) > min_follow_dist_squared;
 	}
 };
 
@@ -89,8 +119,6 @@ struct ZyiNormalMoveComponent : public ZyiMoveBasicComponent {
 	Node2D *move_node;
 	// 强行停止跟随的回调
 	Callable force_stop_follow_callback;
-	// 跟随时应用角速度的最小距离，否则直接修改运动方向，而非通过角速度慢慢旋转运动方向
-	int64_t min_rotation_follow_dist_squared = 900;
 	// 预设置的位置
 	Vector2 preset_pos;
 	// 是否使用预设置的位置
@@ -127,7 +155,11 @@ struct ZyiKnockbackMoveComponent {
 	// 击退衰减速度，击退速度衰减到接近0时停止击退
 	double knockback_deceleration_rate;
 	Callable knockback_moving_changed_callback;
+	ZyiMoveConstant::Flags flags = ZyiMoveConstant::MOVE_FLAG_NORMAL;
 
+	_ALWAYS_INLINE_ bool is_in_boid_grid() {
+		return flags & (ZyiMoveConstant::MOVE_FLAG_BOID_GRID_CHILD | ZyiMoveConstant::MOVE_FLAG_BOID_GRID_STATIC);
+	}
 	_ALWAYS_INLINE_ void reset() {
 		move_node = nullptr;
 		moving = false;
