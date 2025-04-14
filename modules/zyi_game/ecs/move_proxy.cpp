@@ -2,7 +2,7 @@
 
 void ZyiMoveComponentProxy::_bind_methods() {
 	ClassDB::bind_static_method("ZyiMoveComponentProxy", D_METHOD("create"), &ZyiMoveComponentProxy::create);
-	ClassDB::bind_method(D_METHOD("register_to_system", "system", "node", "can_knockback", "flags", "min_follow_dist_squared"), &ZyiMoveComponentProxy::register_to_system, DEFVAL(false), DEFVAL(ZyiMoveConstant::MOVE_FLAG_NORMAL), DEFVAL(2500));
+	ClassDB::bind_method(D_METHOD("register_to_system", "system", "node", "can_knockback", "flags", "min_follow_dist_squared"), &ZyiMoveComponentProxy::register_to_system, DEFVAL(false), DEFVAL(ZyiMoveConstant::MOVE_FLAG_NORMAL), DEFVAL(900));
 	ClassDB::bind_method(D_METHOD("unregister"), &ZyiMoveComponentProxy::unregister);
 	ClassDB::bind_method(D_METHOD("is_registered"), &ZyiMoveComponentProxy::is_registered);
 	ClassDB::bind_method(D_METHOD("check_can_knockback"), &ZyiMoveComponentProxy::check_can_knockback);
