@@ -41,7 +41,7 @@ public:
 	void set_digit_texture(Ref<Texture2D> p_texture) { digit_texture = p_texture; }
 	Vector2 digit_size = Vector2(20, 30);
 	Vector2 get_digit_size() const { return digit_size; }
-	void set_digit_size(Vector2 p_digit_size) { digit_size = p_digit_size; }
+	void set_digit_size(const Vector2 &p_digit_size) { digit_size = p_digit_size; }
 	int64_t atlas_cols = 5;
 	int64_t get_atlas_cols() const { return atlas_cols; }
 	void set_atlas_cols(int64_t p_cols) { atlas_cols = p_cols; }
@@ -52,9 +52,9 @@ public:
 	_ALWAYS_INLINE_ static double ease_out_cubic(double p_value) {
 		return 1.0 - Math::pow(1.0 - p_value, 3.0);
 	}
-	void show_damage_text(String p_value, Vector2 p_pos, Color p_color);
+	void show_damage_text(String p_value, const Vector2 &p_pos, Color p_color);
 	Rect2 get_scaled_rect(double p_scale);
-	void draw_scaled_damage_text_optimized(String p_text, Vector2 p_center, double p_scale, Color p_color);
+	void draw_scaled_damage_text_optimized(String p_text, const Vector2 &p_center, double p_scale, Color p_color);
 };
 
 #endif /* FLOATING_TEXT_SYSTEM_CANVAS_H */
