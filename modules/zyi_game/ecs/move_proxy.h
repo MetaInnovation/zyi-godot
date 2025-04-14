@@ -37,11 +37,12 @@ public:
 	void handle_moving_changed(bool moving);
 	void handle_moved(const Vector2 &velocity, const Vector2 &old_velocity);
 	void handle_knockback_moving_changed(bool moving);
-	bool check_can_knockback() const;
 	void update_flags(BitField<ZyiMoveConstant::Flags> p_flags);
 	void add_flags(BitField<ZyiMoveConstant::Flags> p_flags);
 	void remove_flags(BitField<ZyiMoveConstant::Flags> p_flags);
 	BitField<ZyiMoveConstant::Flags> get_flags();
+	void update_extra_force(const Vector2 &p_force);
+	bool check_can_knockback() const;
 	void update_knockback_enabled(bool p_value);
 	ZyiNormalMoveComponent *get_normal_move_component_ptr();
 	ZyiCharacterMoveComponent *get_character_move_component_ptr();

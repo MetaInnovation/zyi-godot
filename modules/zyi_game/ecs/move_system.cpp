@@ -267,9 +267,20 @@ _ALWAYS_INLINE_ void ZyiMoveSystem::idle_physics_process_update_character_move(d
 		ZyiInternalMoveFollowResult follow_result = component.resolve_follow_result(self_pos);
 		Vector2 follow_target_pos = follow_result.follow_target_position;
 		if (follow_result.valid_follow) {
-			direction = character_body->get_global_position().direction_to(follow_target_pos);
+			Vector2 follow_direction = character_body->get_global_position().direction_to(follow_target_pos);
+			direction = follow_direction;
 		} else if (follow_result.can_follow) {
-			direction = Vector2(0, 0);
+			if (component.flags & ZyiMoveConstant::MOVE_FLAG_CHARACTER_FOLLOW_POSITIVE) {
+				// 慢速插值
+				direction = direction.lerp(Vector2(0, 0), p_delta);
+			} else {
+				// 快速插值
+				float weight = 8.0f * p_delta;
+				if (weight > 1.0) {
+					weight = 1.0;
+				}
+				direction = direction.lerp(Vector2(0, 0), weight);
+			}
 		}
 		cur_velocity_rate = lerp_velocity_like_rate(cur_velocity_rate, component.max_velocity_rate, p_delta, component.acceleration_rate);
 		component.set_cur_velocity(direction * cur_velocity_rate);

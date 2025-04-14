@@ -5,11 +5,12 @@ void ZyiMoveComponentProxy::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("register_to_system", "system", "node", "can_knockback", "flags", "min_follow_dist_squared"), &ZyiMoveComponentProxy::register_to_system, DEFVAL(false), DEFVAL(ZyiMoveConstant::MOVE_FLAG_NORMAL), DEFVAL(900));
 	ClassDB::bind_method(D_METHOD("unregister"), &ZyiMoveComponentProxy::unregister);
 	ClassDB::bind_method(D_METHOD("is_registered"), &ZyiMoveComponentProxy::is_registered);
-	ClassDB::bind_method(D_METHOD("check_can_knockback"), &ZyiMoveComponentProxy::check_can_knockback);
 	ClassDB::bind_method(D_METHOD("update_flags", "flags"), &ZyiMoveComponentProxy::update_flags);
 	ClassDB::bind_method(D_METHOD("add_flags", "flags"), &ZyiMoveComponentProxy::add_flags);
 	ClassDB::bind_method(D_METHOD("remove_flags", "flags"), &ZyiMoveComponentProxy::remove_flags);
 	ClassDB::bind_method(D_METHOD("get_flags"), &ZyiMoveComponentProxy::get_flags);
+	ClassDB::bind_method(D_METHOD("update_extra_force", "force"), &ZyiMoveComponentProxy::update_extra_force);
+	ClassDB::bind_method(D_METHOD("check_can_knockback"), &ZyiMoveComponentProxy::check_can_knockback);
 	ClassDB::bind_method(D_METHOD("update_knockback_enabled", "value"), &ZyiMoveComponentProxy::update_knockback_enabled);
 	ClassDB::bind_method(D_METHOD("get_move_node"), &ZyiMoveComponentProxy::get_move_node);
 	ClassDB::bind_method(D_METHOD("resolve_velocity"), &ZyiMoveComponentProxy::resolve_velocity);
@@ -141,10 +142,6 @@ void ZyiMoveComponentProxy::handle_knockback_moving_changed(bool moving) {
 	emit_signal(SNAME("knockback_moving_changed"), moving);
 }
 
-bool ZyiMoveComponentProxy::check_can_knockback() const {
-	return can_knockback;
-}
-
 void ZyiMoveComponentProxy::update_flags(BitField<ZyiMoveConstant::Flags> p_flags) {
 	switch (node_type) {
 		case MOVE_NODE_TYPE_NORMAL: {
@@ -221,6 +218,30 @@ BitField<ZyiMoveConstant::Flags> ZyiMoveComponentProxy::get_flags() {
 			break;
 	}
 	return result;
+}
+
+void ZyiMoveComponentProxy::update_extra_force(const Vector2 &p_force) {
+	BitField<ZyiMoveConstant::Flags> result;
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				ptr->set_extra_force(p_force);
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				ptr->set_extra_force(p_force);
+			}
+		} break;
+		default:
+			break;
+	}
+}
+
+bool ZyiMoveComponentProxy::check_can_knockback() const {
+	return can_knockback;
 }
 
 void ZyiMoveComponentProxy::update_knockback_enabled(bool p_value) {
