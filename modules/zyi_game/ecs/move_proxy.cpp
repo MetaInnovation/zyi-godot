@@ -16,6 +16,7 @@ void ZyiMoveComponentProxy::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("resolve_velocity"), &ZyiMoveComponentProxy::resolve_velocity);
 	ClassDB::bind_method(D_METHOD("resolve_max_velocity_rate"), &ZyiMoveComponentProxy::resolve_max_velocity_rate);
 	ClassDB::bind_method(D_METHOD("update_move_linear", "initial_velocity", "acceleration_rate", "max_velocity_rate"), &ZyiMoveComponentProxy::update_move_linear);
+	ClassDB::bind_method(D_METHOD("update_move_linear_velocity", "velocity"), &ZyiMoveComponentProxy::update_move_linear_velocity);
 	ClassDB::bind_method(D_METHOD("update_move_linear_max_velocity_rate", "max_velocity_rate"), &ZyiMoveComponentProxy::update_move_linear_max_velocity_rate);
 	ClassDB::bind_method(D_METHOD("get_move_velocity_scale_add_rate"), &ZyiMoveComponentProxy::get_move_velocity_scale_add_rate);
 	ClassDB::bind_method(D_METHOD("update_move_velocity_scale_add_rate", "velocity_scale_add_rate"), &ZyiMoveComponentProxy::update_move_velocity_scale_add_rate);
@@ -333,6 +334,25 @@ void ZyiMoveComponentProxy::update_move_linear(const Vector2 &p_initial_velocity
 				}
 				ptr->acceleration_rate = p_acceleration_rate;
 				ptr->max_velocity_rate = p_max_velocity_rate;
+			}
+		} break;
+		default:
+			break;
+	}
+}
+
+void ZyiMoveComponentProxy::update_move_linear_velocity(const Vector2 &p_velocity) {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				ptr->set_cur_velocity(p_velocity);
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				ptr->set_cur_velocity(p_velocity);
 			}
 		} break;
 		default:

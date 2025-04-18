@@ -143,7 +143,7 @@ Dictionary ZyiDamageAttackResource::merge_to_value_by_type() {
 	Dictionary type_to_value;
 	type_to_value[type] = build_value();
 	TypedArray<ZyiDamageAttackResource> data_queue = children.duplicate();
-	while (not data_queue.is_empty()) {
+	while (!data_queue.is_empty()) {
 		Ref<ZyiDamageAttackResource> child = data_queue.pop_front();
 		String child_type = child->type;
 		Ref<ZyiDamageValue> damage = type_to_value.get_valid(child_type);
@@ -172,7 +172,7 @@ TypedArray<ZyiDamageValue> ZyiDamageAttackResource::flat_to_value() {
 	TypedArray<ZyiDamageValue> result;
 	result.push_back(build_value());
 	TypedArray<ZyiDamageAttackResource> data_queue = children.duplicate();
-	while (not data_queue.is_empty()) {
+	while (!data_queue.is_empty()) {
 		Ref<ZyiDamageAttackResource> child = data_queue.pop_front();
 		result.append(child->build_value());
 		if (!child->children.is_empty()) {

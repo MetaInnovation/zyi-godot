@@ -51,6 +51,7 @@ public:
 	Vector2 resolve_velocity();
 	double resolve_max_velocity_rate();
 	void update_move_linear(const Vector2 &p_initial_velocity, double p_acceleration_rate, double p_max_velocity_rate);
+	void update_move_linear_velocity(const Vector2 &p_velocity);
 	void update_move_linear_max_velocity_rate(double p_max_velocity_rate);
 	double get_move_velocity_scale_add_rate();
 	void update_move_velocity_scale_add_rate(double p_velocity_scale_add_rate);

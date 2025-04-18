@@ -108,32 +108,38 @@ _ALWAYS_INLINE_ void ZyiMoveSystem::idle_process_update_normal_move(double p_del
 	Node2D *node;
 	for (ZyiNormalMoveComponent &component : normal_move_component_pool.pool) {
 		node = component.move_node;
-		if (!component.check_can_move() || !node || node->is_queued_for_deletion() || !node->is_inside_tree()) {
+		if (!node || node->is_queued_for_deletion() || !node->is_inside_tree()) {
 			continue;
 		}
 		Point2 origin_pos = node->get_global_position();
+		if (component.is_in_boid_grid() && boids_grid.is_valid()) {
+			Point2 pos = node->get_global_position();
+			boids_grid->update_object_map(node->get_instance_id(), pos, origin_pos);
+		}
+		if (!component.check_can_move()) {
+			continue;
+		}
 		if (component.use_preset_pos_for_single_frame) {
 			component.use_preset_pos_for_single_frame = false;
 			node->set_global_position(component.preset_pos);
 		} else {
 			node->set_global_position(origin_pos + component.resolve_velocity() * p_delta);
 		}
-		if (component.is_in_boid_grid() && boids_grid.is_valid()) {
-			Point2 pos = node->get_global_position();
-			boids_grid->update_object_map(node->get_instance_id(), pos, origin_pos);
-		}
 	}
 	for (ZyiKnockbackMoveComponent &component : knockback_move_component_pool.pool) {
 		node = component.move_node;
-		if (!component.moving || !node || node->is_queued_for_deletion() || !node->is_inside_tree()) {
+		if (!node || node->is_queued_for_deletion() || !node->is_inside_tree()) {
 			continue;
 		}
 		Point2 origin_pos = node->get_global_position();
-		node->set_global_position(origin_pos + component.resolve_knockback_velocity() * p_delta);
 		if (component.is_in_boid_grid() && boids_grid.is_valid()) {
 			Point2 pos = node->get_global_position();
 			boids_grid->update_object_map(node->get_instance_id(), pos, origin_pos);
 		}
+		if (!component.moving) {
+			continue;
+		}
+		node->set_global_position(origin_pos + component.resolve_knockback_velocity() * p_delta);
 	}
 }
 
@@ -141,22 +147,22 @@ _ALWAYS_INLINE_ void ZyiMoveSystem::idle_process_update_character_move(double p_
 	CharacterBody2D *character_body;
 	for (ZyiCharacterMoveComponent &component : character_move_component_pool.pool) {
 		character_body = component.move_node;
-		if ((!component.check_can_move() && !component.knockback_moving) || !character_body || character_body->is_queued_for_deletion() || !character_body->is_inside_tree()) {
-			continue;
-		}
-		if (character_body->get_velocity().is_zero_approx()) {
+		if (!character_body || character_body->is_queued_for_deletion() || !character_body->is_inside_tree()) {
 			continue;
 		}
 		Point2 origin_pos = character_body->get_global_position();
+		if (component.is_in_boid_grid() && boids_grid.is_valid()) {
+			Point2 pos = character_body->get_global_position();
+			boids_grid->update_object_map(character_body->get_instance_id(), pos, origin_pos);
+		}
+		if ((!component.check_can_move() && !component.knockback_moving) || character_body->get_velocity().is_zero_approx()) {
+			continue;
+		}
 		if (component.flags & ZyiMoveConstant::MOVE_FLAG_WITHOUT_CHARACTER_COLLIDE) {
 			// 直接移动
 			character_body->set_global_position(origin_pos + character_body->get_velocity() * p_delta);
 		} else if (PhysicsServer2D::get_singleton()->body_get_space(character_body->get_rid()).is_valid()) {
 			character_body->move_and_slide();
-		}
-		if (component.is_in_boid_grid() && boids_grid.is_valid()) {
-			Point2 pos = character_body->get_global_position();
-			boids_grid->update_object_map(character_body->get_instance_id(), pos, origin_pos);
 		}
 	}
 }
@@ -167,7 +173,7 @@ _ALWAYS_INLINE_ void ZyiMoveSystem::idle_physics_process_update_normal_move(doub
 	uint64_t physics_frames = Engine::get_singleton()->get_physics_frames();
 	for (ZyiNormalMoveComponent &component : normal_move_component_pool.pool) {
 		node = component.move_node;
-		if (!component.check_can_move() || !node || node->is_queued_for_deletion() || !node->is_inside_tree()) {
+		if (!component.check_can_auto_update_velocity() || !node || node->is_queued_for_deletion() || !node->is_inside_tree()) {
 			continue;
 		}
 		Vector2 self_pos = node->get_global_position();
@@ -247,7 +253,7 @@ _ALWAYS_INLINE_ void ZyiMoveSystem::idle_physics_process_update_character_move(d
 	uint64_t physics_frames = Engine::get_singleton()->get_physics_frames();
 	for (ZyiCharacterMoveComponent &component : character_move_component_pool.pool) {
 		character_body = component.move_node;
-		if ((!component.check_can_move() && !component.knockback_moving) || !character_body || character_body->is_queued_for_deletion() || !character_body->is_inside_tree()) {
+		if ((!component.check_can_auto_update_velocity() && !component.knockback_moving) || !character_body || character_body->is_queued_for_deletion() || !character_body->is_inside_tree()) {
 			continue;
 		}
 		Vector2 self_pos = character_body->get_global_position();
