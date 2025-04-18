@@ -52,6 +52,9 @@ struct ZyiMoveBasicComponent {
 	_ALWAYS_INLINE_ bool is_forced_in_boid_grid() {
 		return (flags & ZyiMoveConstant::MOVE_FLAG_BOID_GRID_CHILD) && !(flags & ZyiMoveConstant::MOVE_FLAG_UNFORCED);
 	}
+	_ALWAYS_INLINE_ bool is_proxy_by_manual() {
+		return flags & ZyiMoveConstant::MOVE_FLAG_PROXY_BY_MANUAL;
+	}
 	_ALWAYS_INLINE_ void reset() {
 		follow_target = nullptr;
 		last_follow_valid = false;
@@ -63,7 +66,10 @@ struct ZyiMoveBasicComponent {
 		moved_callback = Callable();
 	}
 	_ALWAYS_INLINE_ bool check_can_move() {
-		return moving and not freezed and not move_disabled;
+		return moving && !freezed && !move_disabled;
+	}
+	_ALWAYS_INLINE_ bool check_can_auto_update_velocity() {
+		return check_can_move() && !is_proxy_by_manual();
 	}
 	_ALWAYS_INLINE_ void set_freezed(bool value) {
 		if (freezed == value) {
