@@ -38,6 +38,7 @@ void ZyiNodePoolHelper::release_node(Node *node, Ref<ZyiNodePool> pool) {
 	if (!node || node->is_queued_for_deletion()) {
 		return;
 	}
+	SceneTree *tree = node->get_tree();
 	ZyiGameNodePoolManager::recycle_object(node);
 	Node2D *node2d = Object::cast_to<Node2D>(node);
 	if (node2d) {
@@ -51,11 +52,22 @@ void ZyiNodePoolHelper::release_node(Node *node, Ref<ZyiNodePool> pool) {
 	}
 	ZyiUtilSignalHelper::object_clear_connections(node, SceneStringName(tree_exiting));
 	ZyiUtilSignalHelper::object_clear_connections(node, SceneStringName(tree_exited));
-	// 延迟加入对象池
-	callable_mp_static(&ZyiNodePoolHelper::lazy_release_pool_node).call_deferred(node, pool);
+	// 需要等待1个物理帧，保证处理完物理碰撞；延迟加入对象池
+	if (tree != nullptr) {
+		Ref<ZyiUtilCallableObject> obj = memnew(ZyiUtilCallableObject());
+		// 这里有互相引用，需要在 lazy_release_pool_node 内主动释放
+		obj->handler = callable_mp_static(&ZyiNodePoolHelper::lazy_release_pool_node).bind(node, pool, obj);
+		tree->connect("physics_frame", callable_mp(obj.ptr(), &ZyiUtilCallableObject::call_without_payload), CONNECT_ONE_SHOT);
+	} else {
+		callable_mp_static(&ZyiNodePoolHelper::lazy_release_pool_node).call_deferred(node, pool);
+	}
 }
 
-void ZyiNodePoolHelper::lazy_release_pool_node(Node *node, Ref<ZyiNodePool> pool) {
+void ZyiNodePoolHelper::lazy_release_pool_node(Node *node, Ref<ZyiNodePool> pool, Ref<ZyiUtilCallableObject> p_callable_obj) {
 	// 延迟加入对象池
 	callable_mp(pool.ptr(), &ZyiNodePool::release_node).call_deferred(node, false);
+	if (p_callable_obj.is_valid()) {
+		p_callable_obj->remove_handler();
+		p_callable_obj.unref();
+	}
 }

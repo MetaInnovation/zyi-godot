@@ -17,8 +17,9 @@ public:
 	void set_handler(const Callable &p_handler);
 	void remove_handler();
 	bool is_valid() const;
-	Variant call_with_payload(const Variant &p_payload) const;
-	Variant try_callv(const Array &p_args) const;
+	Variant call_with_payload(const Variant &p_payload = Variant()) const;
+	Variant try_callv(const Array &p_args = Array()) const;
+	Variant call_without_payload() const;
 
 	ZyiUtilCallableObject(const Callable &p_handler);
 	ZyiUtilCallableObject() = default;
