@@ -6,8 +6,9 @@ void ZyiUtilCallableObject::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_handler", "handler"), &ZyiUtilCallableObject::set_handler);
 	ClassDB::bind_method(D_METHOD("remove_handler"), &ZyiUtilCallableObject::remove_handler);
 	ClassDB::bind_method(D_METHOD("is_valid"), &ZyiUtilCallableObject::is_valid);
-	ClassDB::bind_method(D_METHOD("call_with_payload", "payload"), &ZyiUtilCallableObject::call_with_payload);
-	ClassDB::bind_method(D_METHOD("try_callv", "args"), &ZyiUtilCallableObject::try_callv);
+	ClassDB::bind_method(D_METHOD("call_with_payload", "payload"), &ZyiUtilCallableObject::call_with_payload, DEFVAL(Variant()));
+	ClassDB::bind_method(D_METHOD("try_callv", "args"), &ZyiUtilCallableObject::try_callv, DEFVAL_ARRAY);
+	ClassDB::bind_method(D_METHOD("call_without_payload"), &ZyiUtilCallableObject::call_without_payload);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "handler"), "set_handler", "get_handler");
 }
@@ -39,6 +40,10 @@ Variant ZyiUtilCallableObject::call_with_payload(const Variant &p_payload) const
 
 Variant ZyiUtilCallableObject::try_callv(const Array &p_args) const {
 	return handler.callv(p_args);
+}
+
+Variant ZyiUtilCallableObject::call_without_payload() const {
+	return try_callv();
 }
 
 ZyiUtilCallableObject::ZyiUtilCallableObject(const Callable &p_handler) :
