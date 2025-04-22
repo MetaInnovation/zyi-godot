@@ -56,7 +56,7 @@ public:
 	_ALWAYS_INLINE_ void idle_physics_process_update_character_move(double p_delta);
 	_ALWAYS_INLINE_ void resolve_follow_direction();
 	_ALWAYS_INLINE_ bool is_boid_idle_physics_process(uint64_t p_physics_frames);
-	_ALWAYS_INLINE_ Vector2 resolve_extra_force(const ObjectID &p_object_id, const Vector2 &p_pos, const Vector2 &p_origin_force, double p_delta) const;
+	_ALWAYS_INLINE_ Vector2 resolve_extra_force(const ObjectID &p_object_id, const Vector2 &p_pos) const;
 
 	void
 	idle_process_update(double p_delta);
