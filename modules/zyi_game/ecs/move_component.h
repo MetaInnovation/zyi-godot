@@ -62,6 +62,7 @@ struct ZyiMoveBasicComponent {
 		freezed = false;
 		move_disabled = false;
 		velocity_scale_add_rate = 0.0;
+		extra_force = Vector2(0, 0);
 		moving_changed_callback = Callable();
 		moved_callback = Callable();
 	}
