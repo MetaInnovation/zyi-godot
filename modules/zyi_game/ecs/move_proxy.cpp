@@ -2,6 +2,9 @@
 
 void ZyiMoveComponentProxy::_bind_methods() {
 	ClassDB::bind_static_method("ZyiMoveComponentProxy", D_METHOD("create"), &ZyiMoveComponentProxy::create);
+	ClassDB::bind_method(D_METHOD("get_cur_velocity"), &ZyiMoveComponentProxy::get_cur_velocity);
+	ClassDB::bind_method(D_METHOD("get_max_velocity_rate"), &ZyiMoveComponentProxy::get_max_velocity_rate);
+	ClassDB::bind_method(D_METHOD("get_extra_force"), &ZyiMoveComponentProxy::get_extra_force);
 	ClassDB::bind_method(D_METHOD("register_to_system", "system", "node", "can_knockback", "flags", "min_follow_dist_squared"), &ZyiMoveComponentProxy::register_to_system, DEFVAL(false), DEFVAL(ZyiMoveConstant::MOVE_FLAG_NORMAL), DEFVAL(900));
 	ClassDB::bind_method(D_METHOD("unregister"), &ZyiMoveComponentProxy::unregister);
 	ClassDB::bind_method(D_METHOD("is_registered"), &ZyiMoveComponentProxy::is_registered);
@@ -43,10 +46,79 @@ void ZyiMoveComponentProxy::_bind_methods() {
 	ADD_SIGNAL(MethodInfo(SNAME("move_h_changed"), PropertyInfo(Variant::VECTOR2, "velocity"), PropertyInfo(Variant::VECTOR2, "old_velocity")));
 	ADD_SIGNAL(MethodInfo(SNAME("move_v_changed"), PropertyInfo(Variant::VECTOR2, "velocity"), PropertyInfo(Variant::VECTOR2, "old_velocity")));
 	ADD_SIGNAL(MethodInfo(SNAME("knockback_moving_changed"), PropertyInfo(Variant::BOOL, "moving")));
+
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "cur_velocity"), "", "get_cur_velocity");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "velocity_scale_add_rate"), "", "get_move_velocity_scale_add_rate");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_velocity_rate"), "", "get_max_velocity_rate");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "extra_force"), "", "get_extra_force");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "flags"), "", "get_flags");
 }
 
 Ref<ZyiMoveComponentProxy> ZyiMoveComponentProxy::create() {
 	Ref<ZyiMoveComponentProxy> result = memnew(ZyiMoveComponentProxy());
+	return result;
+}
+
+Vector2 ZyiMoveComponentProxy::get_cur_velocity() {
+	Vector2 result;
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				result = ptr->cur_velocity;
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				result = ptr->cur_velocity;
+			}
+		} break;
+		default:
+			break;
+	}
+	return result;
+}
+
+double ZyiMoveComponentProxy::get_max_velocity_rate() {
+	double result;
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				result = ptr->max_velocity_rate;
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				result = ptr->max_velocity_rate;
+			}
+		} break;
+		default:
+			break;
+	}
+	return result;
+}
+
+Vector2 ZyiMoveComponentProxy::get_extra_force() {
+	Vector2 result;
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				result = ptr->extra_force;
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				result = ptr->extra_force;
+			}
+		} break;
+		default:
+			break;
+	}
 	return result;
 }
 
@@ -95,6 +167,28 @@ void ZyiMoveComponentProxy::stop_follow() {
 }
 
 void ZyiMoveComponentProxy::unregister() {
+	if (node != nullptr && system != nullptr && system->boids_grid.is_valid()) {
+		bool is_in_boids_grid = false;
+		switch (node_type) {
+			case MOVE_NODE_TYPE_NORMAL: {
+				ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+				if (ptr && ptr->is_in_boid_grid()) {
+					is_in_boids_grid = true;
+				}
+			} break;
+			case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+				ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+				if (ptr && ptr->is_in_boid_grid()) {
+					is_in_boids_grid = true;
+				}
+			} break;
+			default:
+				break;
+		}
+		if (is_in_boids_grid) {
+			system->boids_grid->update_object_leave(node->get_instance_id());
+		}
+	}
 	if (normal_move_component_id >= 0) {
 		system->release_normal_move_component(normal_move_component_id);
 		normal_move_component_id = -1;

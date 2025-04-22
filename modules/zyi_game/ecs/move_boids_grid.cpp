@@ -17,7 +17,8 @@ void ZyiMoveBoidsGrid::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("init", "grid_space_list", "grid_cell_size"), &ZyiMoveBoidsGrid::init);
 	ClassDB::bind_method(D_METHOD("update_space_list", "grid_space_list"), &ZyiMoveBoidsGrid::update_space_list);
 	ClassDB::bind_method(D_METHOD("clear"), &ZyiMoveBoidsGrid::clear);
-	ClassDB::bind_method(D_METHOD("update_object_map", "object_id", "pos", "origin_pos"), &ZyiMoveBoidsGrid::update_object_map);
+	ClassDB::bind_method(D_METHOD("update_object_leave", "object_id"), &ZyiMoveBoidsGrid::update_object_leave);
+	ClassDB::bind_method(D_METHOD("update_object_map", "object_id", "pos"), &ZyiMoveBoidsGrid::update_object_map);
 	ClassDB::bind_method(D_METHOD("get_repulsive_force", "object_id", "pos"), &ZyiMoveBoidsGrid::get_repulsive_force);
 }
 
@@ -33,8 +34,12 @@ _FORCE_INLINE_ Vector2i ZyiMoveBoidsGrid::get_grid_coord(uint8_t p_space_index, 
 	return Vector2i(pos.x / grid_cell_size.x, pos.y / grid_cell_size.y);
 }
 
-_ALWAYS_INLINE_ bool ZyiMoveBoidsGrid::is_grid_coord_valid(const Rect2i &p_grid_space, const Vector2i &p_coord) const {
-	return p_coord.x >= 0 && p_coord.x < p_grid_space.size.x && p_coord.y >= 0 && p_coord.y < p_grid_space.size.y;
+_ALWAYS_INLINE_ Size2i ZyiMoveBoidsGrid::get_space_coord_size(const Rect2i &space) const {
+	return Size2i(VariantUtilityFunctions::ceili(space.size.x / grid_cell_size.x), VariantUtilityFunctions::ceili(space.size.y / grid_cell_size.y));
+}
+
+_ALWAYS_INLINE_ bool ZyiMoveBoidsGrid::is_grid_coord_valid(const Size2i &p_space_coord_size, const Vector2i &p_coord) const {
+	return p_coord.x >= 0 && p_coord.x < p_space_coord_size.x && p_coord.y >= 0 && p_coord.y < p_space_coord_size.y;
 }
 
 _ALWAYS_INLINE_ Rect2i ZyiMoveBoidsGrid::normalize_space(const Rect2i &p_grid_space, const Size2i &p_grid_cell_size) const {
@@ -47,27 +52,29 @@ _FORCE_INLINE_ int64_t ZyiMoveBoidsGrid::get_grid_index(uint8_t p_space_index, c
 
 _FORCE_INLINE_ int64_t ZyiMoveBoidsGrid::get_grid_index_by_coord(uint8_t p_space_index, const Vector2i &p_coord) const {
 	Rect2i grid_space = grid_space_list[p_space_index];
-	if (!is_grid_coord_valid(grid_space, p_coord)) {
+	Size2i space_coord_size = get_space_coord_size(grid_space);
+	if (!is_grid_coord_valid(space_coord_size, p_coord)) {
 		return -1;
 	}
 	int64_t start_index = 0;
 	for (int i = 0; i < p_space_index; i++) {
-		Size2i grid_space_size = grid_space_list[i].size;
-		start_index += grid_space_size.x * grid_space_size.y;
+		Size2i space_coord_size = get_space_coord_size(grid_space_list[i]);
+		start_index += space_coord_size.x * space_coord_size.y;
 	}
-	return start_index + p_coord.x + p_coord.y * grid_space.size.x;
+	return start_index + p_coord.x + p_coord.y * space_coord_size.x;
 }
 
 void ZyiMoveBoidsGrid::init(const TypedArray<Rect2i> &p_grid_space_list, const Size2i &p_grid_cell_size) {
 	grid_space_count = p_grid_space_list.size();
 	grid_space_list = (Rect2i *)memalloc(sizeof(Rect2i) * grid_space_count);
+	grid_cell_size = p_grid_cell_size;
 	boid_cell_count = 0;
 	for (int i = 0; i < grid_space_count; i++) {
-		Rect2i rect = normalize_space(p_grid_space_list[i], p_grid_cell_size);
+		Rect2i rect = normalize_space(p_grid_space_list[i], grid_cell_size);
 		grid_space_list[i] = rect;
-		boid_cell_count += rect.size.x * rect.size.y;
+		Size2i space_coord_size = get_space_coord_size(rect);
+		boid_cell_count += space_coord_size.x * space_coord_size.y;
 	}
-	grid_cell_size = p_grid_cell_size;
 	boid_grid = (uint16_t *)memalloc(sizeof(uint16_t) * boid_cell_count);
 }
 
@@ -77,12 +84,14 @@ void ZyiMoveBoidsGrid::update_space_list(const TypedArray<Rect2i> &p_grid_space_
 		clear();
 		init(p_grid_space_list, grid_cell_size);
 	} else {
+		boid_object_pos_map.clear();
 		boid_object_set.clear();
 		uint64_t cell_count = 0;
 		for (int i = 0; i < grid_space_count; i++) {
 			Rect2i rect = normalize_space(p_grid_space_list[i], grid_cell_size);
 			grid_space_list[i] = rect;
-			cell_count += rect.size.x * rect.size.y;
+			Size2i space_coord_size = get_space_coord_size(rect);
+			cell_count += space_coord_size.x * space_coord_size.y;
 		}
 		if (boid_cell_count != cell_count) {
 			// 大小一致，需要重新分配
@@ -90,7 +99,7 @@ void ZyiMoveBoidsGrid::update_space_list(const TypedArray<Rect2i> &p_grid_space_
 			boid_grid = (uint16_t *)memrealloc(boid_grid, sizeof(uint16_t) * boid_cell_count);
 		} else {
 			// 大小一致，重置为0
-			memset(boid_grid, 0, sizeof(uint16_t) + boid_cell_count);
+			memset(boid_grid, 0, sizeof(uint16_t) * boid_cell_count);
 		}
 	}
 }
@@ -106,30 +115,46 @@ void ZyiMoveBoidsGrid::clear() {
 		memfree(boid_grid);
 		boid_grid = nullptr;
 	}
-	boid_object_set.clear();
+	boid_object_pos_map.clear();
 }
 
-void ZyiMoveBoidsGrid::update_object_map(ObjectID p_object_id, const Vector2 &p_pos, const Vector2 &p_origin_pos) {
+void ZyiMoveBoidsGrid::update_object_leave(ObjectID p_object_id) {
 	if (p_object_id.is_null()) {
 		return;
 	}
-	bool recorded = boid_object_set.has(p_object_id);
+	if (!boid_object_pos_map.has(p_object_id)) {
+		return;
+	}
+	for (int i = 0; i < grid_space_count; i++) {
+		int64_t grid_index = boid_object_pos_map.get(p_object_id);
+		if (grid_index >= 0 && boid_grid[grid_index] > 0) {
+			// 移除
+			boid_grid[grid_index]--;
+		}
+		boid_object_pos_map.erase(p_object_id);
+	}
+}
+
+void ZyiMoveBoidsGrid::update_object_map(ObjectID p_object_id, const Vector2 &p_pos) {
+	if (p_object_id.is_null()) {
+		return;
+	}
 	for (int i = 0; i < grid_space_count; i++) {
 		int64_t grid_index = get_grid_index(i, p_pos);
-		int64_t origin_grid_index = get_grid_index(i, p_origin_pos);
-		if ((grid_index < 0 && origin_grid_index < 0) || recorded && grid_index == origin_grid_index) {
-			continue;
-		}
-		if (recorded && origin_grid_index >= 0 && boid_grid[origin_grid_index] > 0) {
+		uint64_t *origin_grid_index_ptr = boid_object_pos_map.getptr(p_object_id);
+		if (origin_grid_index_ptr != nullptr) {
+			if (*origin_grid_index_ptr == grid_index) {
+				continue;
+			}
 			// 移除
-			boid_grid[origin_grid_index]--;
+			boid_grid[*origin_grid_index_ptr]--;
 		}
 		if (grid_index >= 0) {
 			// 添加
 			boid_grid[grid_index]++;
-		}
-		if (!recorded) {
-			boid_object_set.insert(p_object_id);
+			boid_object_pos_map[p_object_id] = grid_index;
+		} else if (origin_grid_index_ptr != nullptr) {
+			boid_object_pos_map.erase(p_object_id);
 		}
 	}
 }
@@ -139,17 +164,16 @@ Vector2 ZyiMoveBoidsGrid::get_repulsive_force(ObjectID p_object_id, const Vector
 	if (p_object_id.is_null()) {
 		return result;
 	}
-	if (!boid_object_set.has(p_object_id)) {
-		return result;
-	}
 	// 确定要使用的网格空间
 	Vector2i coord;
 	int16_t space_index = -1;
 	Rect2i grid_space;
+	Size2i space_coord_size;
 	for (int i = 0; i < grid_space_count; i++) {
 		coord = get_grid_coord(i, p_pos);
 		grid_space = grid_space_list[i];
-		if (is_grid_coord_valid(grid_space, coord)) {
+		space_coord_size = get_space_coord_size(grid_space);
+		if (is_grid_coord_valid(space_coord_size, coord)) {
 			space_index = i;
 			break;
 		}
@@ -158,9 +182,8 @@ Vector2 ZyiMoveBoidsGrid::get_repulsive_force(ObjectID p_object_id, const Vector
 		return result;
 	}
 	// 计算力
-	Size2i grid_space_size = grid_space.size;
-	int32_t w = grid_space_size.x;
-	int32_t h = grid_space_size.y;
+	int32_t w = space_coord_size.x;
+	int32_t h = space_coord_size.y;
 	float gx = 0.0f;
 	float gy = 0.0f;
 	// 计算当前坐标相对于所在网格中心的偏移
