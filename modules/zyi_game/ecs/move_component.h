@@ -62,6 +62,7 @@ struct ZyiMoveBasicComponent {
 		freezed = false;
 		move_disabled = false;
 		velocity_scale_add_rate = 0.0;
+		flags = ZyiMoveConstant::MOVE_FLAG_NORMAL;
 		extra_force = Vector2(0, 0);
 		moving_changed_callback = Callable();
 		moved_callback = Callable();
@@ -92,6 +93,9 @@ struct ZyiMoveBasicComponent {
 	}
 	_ALWAYS_INLINE_ void set_extra_force(const Vector2 &p_value) {
 		extra_force = p_value;
+	}
+	_ALWAYS_INLINE_ void idle_update_extra_force(const Vector2 &p_value, double p_delta) {
+		extra_force = extra_force.lerp(p_value * 100, p_delta);
 	}
 	_ALWAYS_INLINE_ void set_cur_velocity(const Vector2 &p_value) {
 		Vector2 old_velocity = cur_velocity;
@@ -209,7 +213,7 @@ struct ZyiCharacterMoveComponent : public ZyiMoveBasicComponent {
 	// 当前击退速度
 	Vector2 cur_knockback_velocity;
 	// 初始击退速度
-	Vector2 init_knockback_velocity;
+	Vector2 init_knockback_velocity = Vector2(0, 0);
 	// 击退衰减速度，击退速度衰减到接近0时停止击退
 	double knockback_deceleration_rate;
 	Callable knockback_moving_changed_callback;
@@ -217,6 +221,8 @@ struct ZyiCharacterMoveComponent : public ZyiMoveBasicComponent {
 	_ALWAYS_INLINE_ void reset() {
 		ZyiMoveBasicComponent::reset();
 		knockback_moving = false;
+		cur_knockback_velocity = Vector2(0, 0);
+		init_knockback_velocity = Vector2(0, 0);
 		knockback_moving_changed_callback = Callable();
 	}
 	_ALWAYS_INLINE_ void set_knockback_moving(bool value) {
@@ -225,7 +231,7 @@ struct ZyiCharacterMoveComponent : public ZyiMoveBasicComponent {
 		}
 		knockback_moving = value;
 		if (!knockback_moving) {
-			cur_knockback_velocity = Vector2();
+			cur_knockback_velocity = Vector2(0, 0);
 		}
 		if (knockback_moving_changed_callback.is_valid()) {
 			knockback_moving_changed_callback.call_deferred(knockback_moving);
