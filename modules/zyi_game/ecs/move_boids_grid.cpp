@@ -85,7 +85,6 @@ void ZyiMoveBoidsGrid::update_space_list(const TypedArray<Rect2i> &p_grid_space_
 		init(p_grid_space_list, grid_cell_size);
 	} else {
 		boid_object_pos_map.clear();
-		boid_object_set.clear();
 		uint64_t cell_count = 0;
 		for (int i = 0; i < grid_space_count; i++) {
 			Rect2i rect = normalize_space(p_grid_space_list[i], grid_cell_size);

@@ -14,7 +14,7 @@ class ZyiFloatingTextSystemCanvas : public Node2D {
 
 	struct InternalDamageTextItem {
 		String value;
-		double start_ticks_msec;
+		uint64_t start_ticks_msec;
 		Vector2 base_pos;
 		Color color;
 		Vector2 top_pos;
@@ -30,7 +30,7 @@ protected:
 public:
 	static const double MAX_LIVE_TIME;
 	enum {
-		DAMAGE_TEXT_INIT_CAPACITY = 257,
+		DAMAGE_TEXT_INIT_CAPACITY = 256,
 	};
 
 	int64_t max_damage_text_count = -1;
@@ -46,11 +46,11 @@ public:
 	int64_t get_atlas_cols() const { return atlas_cols; }
 	void set_atlas_cols(int64_t p_cols) { atlas_cols = p_cols; }
 
-	_ALWAYS_INLINE_ static double ease_out_quad(double p_value) {
-		return -p_value * (p_value - 2.0);
+	_ALWAYS_INLINE_ static double ease_out_quad(double p_t) {
+		return 1.0 - (1.0 - p_t) * (1.0 - p_t);
 	}
-	_ALWAYS_INLINE_ static double ease_out_cubic(double p_value) {
-		return 1.0 - Math::pow(1.0 - p_value, 3.0);
+	_ALWAYS_INLINE_ static double ease_out_cubic(double p_t) {
+		return 1.0 - Math::pow(1.0 - p_t, 3.0);
 	}
 	void show_damage_text(String p_value, const Vector2 &p_pos, Color p_color);
 	Rect2 get_scaled_rect(double p_scale);

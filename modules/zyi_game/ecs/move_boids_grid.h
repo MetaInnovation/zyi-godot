@@ -31,17 +31,16 @@ public:
 	// 网格中物体数量映射大小
 	uint64_t boid_cell_count;
 	// 物体位置映射
-	HashSet<ObjectID> boid_object_set;
 	HashMap<ObjectID, uint64_t> boid_object_pos_map;
 
 	static Ref<ZyiMoveBoidsGrid> create(const TypedArray<Rect2i> &p_grid_space_list, const Size2i &p_grid_cell_size);
-	_FORCE_INLINE_ Vector2i get_grid_coord(uint8_t p_space_index, const Vector2i &p_pos) const;
+	_ALWAYS_INLINE_ Vector2i get_grid_coord(uint8_t p_space_index, const Vector2i &p_pos) const;
 	_ALWAYS_INLINE_ Size2i get_space_coord_size(const Rect2i &space) const;
 	_ALWAYS_INLINE_ bool is_grid_coord_valid(const Size2i &p_space_coord_size, const Vector2i &p_coord) const;
 	// 需要扩大边界，保证物体在space交叉处时，只用计算一次
 	_ALWAYS_INLINE_ Rect2i normalize_space(const Rect2i &p_grid_space, const Size2i &p_grid_cell_size) const;
-	_FORCE_INLINE_ int64_t get_grid_index(uint8_t p_space_index, const Vector2i &p_pos) const;
-	_FORCE_INLINE_ int64_t get_grid_index_by_coord(uint8_t p_space_index, const Vector2i &p_coord) const;
+	_ALWAYS_INLINE_ int64_t get_grid_index(uint8_t p_space_index, const Vector2i &p_pos) const;
+	_ALWAYS_INLINE_ int64_t get_grid_index_by_coord(uint8_t p_space_index, const Vector2i &p_coord) const;
 	void init(const TypedArray<Rect2i> &p_grid_space_list, const Size2i &p_grid_cell_size);
 	void update_space_list(const TypedArray<Rect2i> &p_grid_space_list);
 	void clear();
