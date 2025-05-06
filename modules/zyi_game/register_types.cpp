@@ -27,6 +27,9 @@
 #include "./pool/node_pool.h"
 #include "./pool/node_pool_helper.h"
 
+#include "./task/task_queue.h"
+
+#include "./ecs/drop_system_canvas.h"
 #include "./ecs/floating_text_system_canvas.h"
 #include "./ecs/move_boids_grid.h"
 #include "./ecs/move_constant.h"
@@ -62,8 +65,11 @@ void initialize_zyi_game_module(ModuleInitializationLevel p_level) {
 	GDREGISTER_CLASS(ZyiGameNodePoolManager);
 	GDREGISTER_CLASS(ZyiNodePoolHelper);
 
+	GDREGISTER_CLASS(ZyiTaskQueue);
+
 	GDREGISTER_CLASS(ZyiMoveConstant);
 	GDREGISTER_CLASS(ZyiMoveBoidsGrid);
+	GDREGISTER_CLASS(ZyiDropSystemCanvas);
 	GDREGISTER_CLASS(ZyiFloatingTextSystemCanvas);
 	GDREGISTER_CLASS(ZyiMoveComponentProxy);
 	GDREGISTER_CLASS(ZyiMoveSystem);

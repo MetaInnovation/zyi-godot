@@ -43,15 +43,14 @@ void ZyiFloatingTextSystemCanvas::_notification(int p_notification) {
 		} break;
 		case NOTIFICATION_DRAW: {
 			// _draw
-			double current_time = Time::get_singleton()->get_ticks_msec();
+			uint64_t current_time = Time::get_singleton()->get_ticks_msec();
 			LocalVector<size_t> to_remove_index_list;
 			for (size_t i = 0; i < _damage_text_list.size(); i++) {
 				InternalDamageTextItem &item = _damage_text_list[i];
-				double elapsed = current_time - item.start_ticks_msec;
-				if (elapsed >= MAX_LIVE_TIME) {
+				uint64_t elapsed = current_time - item.start_ticks_msec;
+				if (elapsed >= MAX_LIVE_TIME || elapsed < 0) {
 					to_remove_index_list.push_back(i);
 				} else {
-					elapsed = VariantUtilityFunctions::clampf(elapsed, 0, MAX_LIVE_TIME);
 					double scale_v = 1.0;
 					Vector2 pos = item.base_pos;
 					double alpha = 1.0;
@@ -88,8 +87,14 @@ void ZyiFloatingTextSystemCanvas::show_damage_text(String p_value, const Vector2
 	if (max_damage_text_count >= 0 && _damage_text_list.size() >= max_damage_text_count) {
 		return;
 	}
-	double start_ticks_msec = Time::get_singleton()->get_ticks_msec();
-	_damage_text_list.push_back(InternalDamageTextItem{ p_value, start_ticks_msec, p_pos, p_color, Vector2() });
+	uint64_t start_ticks_msec = Time::get_singleton()->get_ticks_msec();
+	_damage_text_list.emplace_back();
+	InternalDamageTextItem &item = _damage_text_list.back();
+	item.value = p_value;
+	item.start_ticks_msec = start_ticks_msec;
+	item.base_pos = p_pos;
+	item.color = p_color;
+	item.top_pos = Vector2();
 	queue_redraw();
 }
 
