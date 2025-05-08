@@ -87,7 +87,8 @@ public:
 	_ALWAYS_INLINE_ void apply_item_pick_finished(InternalPickedDropItem &item);
 	void idle_process_pick(double p_delta, Node2D *p_picker_node, double p_pick_range);
 	int64_t pick_all(Node2D *p_picker_node, double p_pick_range);
-	void clean_items();
+	void clean_drop_items();
+	void clean_picking_items();
 	_ALWAYS_INLINE_ void apply_item_pick(const InternalDropItem &p_item, Node2D *p_picker_node);
 	void add_drop_item(const Rect2 &p_texture_rect, const Vector2 &p_pos, const Array &p_data);
 

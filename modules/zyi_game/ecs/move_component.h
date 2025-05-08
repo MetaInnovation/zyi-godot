@@ -110,7 +110,7 @@ struct ZyiMoveBasicComponent {
 	_ALWAYS_INLINE_ double resolve_max_velocity_rate() {
 		return max_velocity_rate * (1.0 + velocity_scale_add_rate);
 	}
-	_ALWAYS_INLINE_ ZyiInternalMoveFollowResult resolve_follow_result(const Vector2 &self_pos) {
+	_ALWAYS_INLINE_ ZyiInternalMoveFollowResult resolve_follow_result(double p_delta, const Vector2 &self_pos) {
 		Vector2 follow_target_pos = self_pos;
 		bool can_follow = false;
 		bool valid_follow = false;
@@ -120,18 +120,20 @@ struct ZyiMoveBasicComponent {
 			follow_target_pos = last_follow_pos + follow_offset;
 			can_follow = true;
 		} else if (last_follow_valid) {
-			last_follow_valid = false;
+			if (!(flags & ZyiMoveConstant::MOVE_FLAG_ALWAYS_FOLLOW_BY_POS)) {
+				last_follow_valid = false;
+			}
 			follow_target_pos = last_follow_pos + follow_offset;
 			can_follow = true;
 		}
 		if (can_follow) {
-			valid_follow = is_valid_follow_target_position(follow_target_pos, self_pos);
+			valid_follow = is_valid_follow_target_position(p_delta, follow_target_pos, self_pos);
 		}
 		return ZyiInternalMoveFollowResult{ follow_target_pos, can_follow, valid_follow };
 	}
-	_ALWAYS_INLINE_ bool is_valid_follow_target_position(const Vector2 &follow_target_pos, const Vector2 &self_pos) {
+	_ALWAYS_INLINE_ bool is_valid_follow_target_position(double p_delta, const Vector2 &follow_target_pos, const Vector2 &self_pos) {
 		float dist = follow_target_pos.distance_squared_to(self_pos);
-		return dist > resolve_velocity().length_squared() && dist > min_follow_dist_squared;
+		return dist > (resolve_velocity().length_squared() * p_delta * p_delta) && dist > min_follow_dist_squared;
 	}
 };
 

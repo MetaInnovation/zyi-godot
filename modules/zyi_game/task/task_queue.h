@@ -36,6 +36,7 @@ public:
 
 	void idle_process_task(double p_delta, uint16_t p_max_ms_per_idle = 0, uint16_t p_max_task_per_idle = 0);
 	void add_task(const Callable &p_handler, const Array &p_args);
+	void clean();
 };
 
 #endif /* TASK_QUEUE_H */

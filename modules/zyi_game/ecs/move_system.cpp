@@ -196,7 +196,7 @@ _ALWAYS_INLINE_ void ZyiMoveSystem::idle_physics_process_update_normal_move(doub
 		}
 		Vector2 self_pos = node->get_global_position();
 		follow_target = component.follow_target;
-		ZyiInternalMoveFollowResult follow_result = component.resolve_follow_result(self_pos);
+		ZyiInternalMoveFollowResult follow_result = component.resolve_follow_result(p_delta, self_pos);
 		Vector2 direction = component.cur_velocity.normalized();
 		Vector2 origin_direction = Vector2(direction);
 		double follow_dist_squared = -1.0;
@@ -206,21 +206,23 @@ _ALWAYS_INLINE_ void ZyiMoveSystem::idle_physics_process_update_normal_move(doub
 		if (follow_result.valid_follow) {
 			component.cur_rotation_rate = lerp_velocity_like_rate(component.cur_rotation_rate, component.max_rotation_rate, p_delta, component.rotation_acceleration_rate);
 			double angle = direction.angle_to(follow_direction);
-			if (angle <= MIN_ROTATION_ANGLE || angle < component.cur_rotation_rate) {
+			if (Math::abs(angle) <= MIN_ROTATION_ANGLE || Math::abs(angle) < component.cur_rotation_rate) {
 				direction = follow_direction;
 			} else {
-				direction = direction.rotated(component.cur_rotation_rate);
-			}
-			if (Math::is_zero_approx(dist_angle)) {
-				// 不再跟随
-				component.force_stop_follow();
+				direction = direction.rotated(SIGN(angle) * component.cur_rotation_rate);
 			}
 			dist_angle = direction.angle_to(follow_direction);
+			if (Math::is_zero_approx(dist_angle)) {
+				// 不再跟随
+				component.last_follow_valid = false;
+				component.force_stop_follow();
+			}
 		} else if (follow_result.can_follow) {
 			Vector2 follow_direction = self_pos.direction_to(follow_target_pos);
 			// 距离太近，则直接角度转过去
 			direction = follow_direction;
 			// 不再跟随
+			component.last_follow_valid = false;
 			component.force_stop_follow();
 			dist_angle = 0;
 		}
@@ -242,6 +244,7 @@ _ALWAYS_INLINE_ void ZyiMoveSystem::idle_physics_process_update_normal_move(doub
 			if (is_leave && is_near_than_velocity && Math::abs(dist_angle) < Math_PI / 2.0) {
 				component.use_preset_pos_for_single_frame = true;
 				component.preset_pos = follow_target_pos;
+				component.last_follow_valid = false;
 				// 不再跟随
 				component.force_stop_follow();
 				component.set_cur_velocity(origin_direction * cur_velocity_rate);
@@ -280,7 +283,7 @@ _ALWAYS_INLINE_ void ZyiMoveSystem::idle_physics_process_update_character_move(d
 		Vector2 direction = component.cur_velocity.normalized();
 		double cur_velocity_rate = component.cur_velocity.length();
 		// 应用跟随
-		ZyiInternalMoveFollowResult follow_result = component.resolve_follow_result(self_pos);
+		ZyiInternalMoveFollowResult follow_result = component.resolve_follow_result(p_delta, self_pos);
 		Vector2 follow_target_pos = follow_result.follow_target_position;
 		if (follow_result.valid_follow) {
 			Vector2 follow_direction = character_body->get_global_position().direction_to(follow_target_pos);

@@ -15,7 +15,8 @@ void ZyiDropSystemCanvas::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("clear"), &ZyiDropSystemCanvas::clear);
 	ClassDB::bind_method(D_METHOD("idle_process_pick", "delta", "picker_node", "pick_range"), &ZyiDropSystemCanvas::idle_process_pick);
 	ClassDB::bind_method(D_METHOD("pick_all", "picker_node", "pick_range"), &ZyiDropSystemCanvas::pick_all);
-	ClassDB::bind_method(D_METHOD("clean_items"), &ZyiDropSystemCanvas::clean_items);
+	ClassDB::bind_method(D_METHOD("clean_drop_items"), &ZyiDropSystemCanvas::clean_drop_items);
+	ClassDB::bind_method(D_METHOD("clean_picking_items"), &ZyiDropSystemCanvas::clean_picking_items);
 	ClassDB::bind_method(D_METHOD("add_drop_item", "texture_rect", "pos", "data"), &ZyiDropSystemCanvas::add_drop_item);
 
 	ADD_SIGNAL(MethodInfo(SNAME("pick_start"), PropertyInfo(Variant::ARRAY, "data"), PropertyInfo(Variant::OBJECT, "picker_ref", PROPERTY_HINT_RESOURCE_TYPE, "WeakRef")));
@@ -244,7 +245,6 @@ void ZyiDropSystemCanvas::idle_process_pick(double p_delta, Node2D *p_picker_nod
 	if (start_coord == end_coord) {
 		return;
 	}
-	const double range_squared = p_pick_range * p_pick_range;
 	const size_t origin_size = picking_item_list.size();
 	LocalVector<int64_t> picked_index_list;
 	// 遍历在范围内的网格
@@ -258,7 +258,7 @@ void ZyiDropSystemCanvas::idle_process_pick(double p_delta, Node2D *p_picker_nod
 			const size_t item_num = item_data->size();
 			for (size_t index = 0; index < item_num; index++) {
 				const InternalDropItem &item = item_data->operator[](index);
-				if (picker_pos.distance_squared_to(item.drop_pos) <= range_squared) {
+				if (picker_pos.distance_to(item.drop_pos) <= p_pick_range + item.texture_rect.size.length()) {
 					// 新拾取的
 					picked_index_list.push_back(index);
 					apply_item_pick(item, p_picker_node);
@@ -297,7 +297,7 @@ int64_t ZyiDropSystemCanvas::pick_all(Node2D *p_picker_node, double p_pick_range
 	return result;
 }
 
-void ZyiDropSystemCanvas::clean_items() {
+void ZyiDropSystemCanvas::clean_drop_items() {
 	for (size_t index = 0; index < grid_cell_count; index++) {
 		std::optional<std::vector<InternalDropItem>> &item_data = grid_cell_to_drop_list[index];
 		if (!item_data.has_value()) {
@@ -306,6 +306,10 @@ void ZyiDropSystemCanvas::clean_items() {
 		item_data->clear();
 	}
 	drop_item_count = 0;
+}
+
+void ZyiDropSystemCanvas::clean_picking_items() {
+	picking_item_list.clear();
 }
 
 _ALWAYS_INLINE_ void ZyiDropSystemCanvas::apply_item_pick(const InternalDropItem &p_item, Node2D *p_picker_node) {
