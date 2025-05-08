@@ -8,6 +8,7 @@ void ZyiTaskQueue::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_max_task_per_idle", "value"), &ZyiTaskQueue::set_max_task_per_idle);
 	ClassDB::bind_method(D_METHOD("idle_process_task", "delta", "custom_max_ms_per_idle", "custom_max_task_per_idle"), &ZyiTaskQueue::idle_process_task, DEFVAL(0), DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("add_task", "handler", "args"), &ZyiTaskQueue::add_task);
+	ClassDB::bind_method(D_METHOD("clean"), &ZyiTaskQueue::clean);
 
 	BIND_CONSTANT(INIT_MAX_MS_PER_IDLE);
 	BIND_CONSTANT(INIT_MAX_TASK_PER_IDLE);
@@ -65,4 +66,8 @@ void ZyiTaskQueue::idle_process_task(double p_delta, uint16_t p_max_ms_per_idle,
 
 void ZyiTaskQueue::add_task(const Callable &p_handler, const Array &p_args) {
 	_task_queue.emplace(p_handler, p_args);
+}
+
+void ZyiTaskQueue::clean() {
+	_task_queue = std::queue<InternalTask>();
 }
