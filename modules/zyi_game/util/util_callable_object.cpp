@@ -35,11 +35,33 @@ bool ZyiUtilCallableObject::is_valid() const {
 }
 
 Variant ZyiUtilCallableObject::call_with_payload(const Variant &p_payload) const {
-	return handler.call(p_payload);
+	Variant ret;
+	Callable::CallError ce;
+	const Variant *argptrs[1];
+	argptrs[0] = &p_payload;
+	handler.callp(argptrs, 1, ret, ce);
+	if (ce.error != Callable::CallError::CALL_OK) {
+		ERR_PRINT(vformat("Error calling ZyiUtilCallableObject call_with_payload '%s' to callable: %s.", String(handler.get_method()), Variant::get_callable_error_text(handler, argptrs, 1, ce)));
+	}
+	return ret;
 }
 
 Variant ZyiUtilCallableObject::try_callv(const Array &p_args) const {
-	return handler.callv(p_args);
+	Variant ret;
+	Callable::CallError ce;
+	int p_argcount = p_args.size();
+	const Variant **argptrs = nullptr;
+	if (p_argcount) {
+		argptrs = (const Variant **)alloca(sizeof(Variant *) * p_argcount);
+		for (int i = 0; i < p_argcount; i++) {
+			argptrs[i] = &p_args[i];
+		}
+	}
+	handler.callp(argptrs, p_argcount, ret, ce);
+	if (ce.error != Callable::CallError::CALL_OK) {
+		ERR_PRINT(vformat("Error calling ZyiUtilCallableObject try_callv '%s' to callable: %s.", String(handler.get_method()), Variant::get_callable_error_text(handler, argptrs, p_argcount, ce)));
+	}
+	return ret;
 }
 
 Variant ZyiUtilCallableObject::call_without_payload() const {
