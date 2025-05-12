@@ -35,8 +35,8 @@ class ZyiDropSystemCanvas : public Node2D {
 	// 单个网格大小
 	Size2i grid_cell_size;
 	// 网格单元总大小
-	uint64_t grid_cell_count;
-	uint64_t drop_item_count;
+	uint64_t grid_cell_count = 0;
+	int64_t drop_item_count = 0;
 	// 记录网格到掉落物品的映射
 	std::optional<std::vector<InternalDropItem>> *grid_cell_to_drop_list = nullptr;
 	// 已拾取的
@@ -66,6 +66,7 @@ public:
 	void set_source_texture(Ref<Texture2D> p_texture) { _source_texture = p_texture; }
 	Rect2 get_draw_space() const { return draw_space; }
 	void set_draw_space(const Rect2 &p_space) { draw_space = p_space; }
+	uint64_t get_drop_item_count() const { return drop_item_count; }
 	uint16_t get_picking_item_count() const;
 
 	_ALWAYS_INLINE_ Size2i get_coord_size(const Rect2i &p_rect) const;

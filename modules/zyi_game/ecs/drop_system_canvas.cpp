@@ -9,6 +9,7 @@ void ZyiDropSystemCanvas::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_source_texture", "value"), &ZyiDropSystemCanvas::set_source_texture);
 	ClassDB::bind_method(D_METHOD("get_draw_space"), &ZyiDropSystemCanvas::get_draw_space);
 	ClassDB::bind_method(D_METHOD("set_draw_space", "value"), &ZyiDropSystemCanvas::set_draw_space);
+	ClassDB::bind_method(D_METHOD("get_drop_item_count"), &ZyiDropSystemCanvas::get_drop_item_count);
 	ClassDB::bind_method(D_METHOD("get_picking_item_count"), &ZyiDropSystemCanvas::get_picking_item_count);
 
 	ClassDB::bind_method(D_METHOD("update_world_grid", "world_rect", "grid_cell_size"), &ZyiDropSystemCanvas::update_world_grid);
@@ -25,6 +26,7 @@ void ZyiDropSystemCanvas::_bind_methods() {
 
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "source_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_source_texture", "get_source_texture");
 	ADD_PROPERTY(PropertyInfo(Variant::RECT2, "draw_space", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "set_draw_space", "get_draw_space");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "drop_item_count", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_drop_item_count");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "picking_item_count", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_picking_item_count");
 }
 
