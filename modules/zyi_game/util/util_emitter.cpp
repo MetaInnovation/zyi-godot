@@ -6,7 +6,7 @@ void ZyiUtilEmitter::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("off", "event_name", "callback"), &ZyiUtilEmitter::off);
 	ClassDB::bind_method(D_METHOD("off_all", "event_name"), &ZyiUtilEmitter::off_all);
 	ClassDB::bind_method(D_METHOD("once", "event_name", "callback"), &ZyiUtilEmitter::once);
-	ClassDB::bind_method(D_METHOD("emit", "event_name", "payload"), &ZyiUtilEmitter::emit);
+	ClassDB::bind_method(D_METHOD("emit", "event_name", "payload"), &ZyiUtilEmitter::emit, DEFVAL(Variant()));
 	ClassDB::bind_method(D_METHOD("clear_listeners_map", "event_name"), &ZyiUtilEmitter::clear_listeners_map);
 	ClassDB::bind_method(D_METHOD("clear"), &ZyiUtilEmitter::clear);
 }
@@ -32,7 +32,14 @@ bool ZyiUtilEmitter::call_listener(const Variant &p_value, const Variant &p_payl
 		if (!handler.is_valid()) {
 			return false;
 		}
-		handler.call(p_payload);
+		Variant ret;
+		Callable::CallError ce;
+		const Variant *argptrs[1];
+		argptrs[0] = &p_payload;
+		handler.callp(argptrs, 1, ret, ce);
+		if (ce.error != Callable::CallError::CALL_OK) {
+			ERR_PRINT(vformat("Error calling ZyiUtilEmitter listener '%s' to callable: %s.", String(handler.get_method()), Variant::get_callable_error_text(handler, argptrs, 1, ce)));
+		}
 		return true;
 	}
 }

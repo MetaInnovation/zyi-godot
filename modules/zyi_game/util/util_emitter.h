@@ -28,7 +28,7 @@ public:
 	void off(const StringName &p_name, const Callable &p_callback);
 	bool off_all(const StringName &p_name);
 	void once(const StringName &p_name, const Callable &p_callback);
-	void emit(const StringName &p_name, const Variant &p_payload);
+	void emit(const StringName &p_name, const Variant &p_payload = Variant());
 	void clear_listeners_map(const StringName &p_name);
 	void clear();
 };
