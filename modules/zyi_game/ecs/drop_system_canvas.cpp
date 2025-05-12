@@ -25,9 +25,9 @@ void ZyiDropSystemCanvas::_bind_methods() {
 	ADD_SIGNAL(MethodInfo(SNAME("pick_finished_clean")));
 
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "source_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_source_texture", "get_source_texture");
-	ADD_PROPERTY(PropertyInfo(Variant::RECT2, "draw_space", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "set_draw_space", "get_draw_space");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "drop_item_count", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_drop_item_count");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "picking_item_count", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_SCRIPT_VARIABLE), "", "get_picking_item_count");
+	ADD_PROPERTY(PropertyInfo(Variant::RECT2, "draw_space"), "set_draw_space", "get_draw_space");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "drop_item_count"), "", "get_drop_item_count");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "picking_item_count"), "", "get_picking_item_count");
 }
 
 void ZyiDropSystemCanvas::_notification(int p_notification) {
@@ -72,7 +72,7 @@ _ALWAYS_INLINE_ Rect2i ZyiDropSystemCanvas::get_coord_range_in_rect(const Rect2 
 }
 
 _ALWAYS_INLINE_ Rect2i ZyiDropSystemCanvas::get_coord_range_in_circle(const Vector2 &p_center, double p_radius) const {
-	return get_coord_range_in_rect(Rect2(p_center - Vector2(p_radius, p_radius), p_center + Vector2(p_radius, p_radius)));
+	return get_coord_range_in_rect(Rect2(p_center - Vector2(p_radius, p_radius), Vector2(p_radius * 2, p_radius * 2)));
 }
 
 _ALWAYS_INLINE_ Vector2i ZyiDropSystemCanvas::get_grid_coord(const Vector2i &p_pos) const {
@@ -249,6 +249,7 @@ void ZyiDropSystemCanvas::idle_process_pick(double p_delta, Node2D *p_picker_nod
 	}
 	const size_t origin_size = picking_item_list.size();
 	LocalVector<int64_t> picked_index_list;
+	int64_t origin_drop_item_count = drop_item_count;
 	// 遍历在范围内的网格
 	for (int32_t x = start_coord.x; x < end_coord.x; x++) {
 		for (int32_t y = start_coord.y; y < end_coord.y; y++) {
