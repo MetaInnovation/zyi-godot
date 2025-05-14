@@ -11,26 +11,47 @@
 #include "util_callable_helper.h"
 #include "util_callable_object.h"
 
+#include <algorithm>
+#include <vector>
+
 class ZyiUtilEmitter : public RefCounted {
 	GDCLASS(ZyiUtilEmitter, RefCounted)
 
 private:
-	HashMap<StringName, Array> listener_map;
+	struct InternalListenerItem {
+		Callable callback;
+		bool once = false;
+		bool invalid = false;
+	};
+	HashMap<StringName, std::vector<InternalListenerItem>> listener_map;
 
 protected:
 	static void _bind_methods();
 
 public:
 	bool check_has_listener(const StringName &p_name) const;
-	bool call_listener(const Variant &p_value, const Variant &p_payload);
 	void on(const StringName &p_name, const Callable &p_callback);
-	void _on(const StringName &p_name, const Variant &p_callback);
+	void _on(const StringName &p_name, const Callable &p_callback, bool p_once);
 	void off(const StringName &p_name, const Callable &p_callback);
 	bool off_all(const StringName &p_name);
 	void once(const StringName &p_name, const Callable &p_callback);
 	void emit(const StringName &p_name, const Variant &p_payload = Variant());
 	void clear_listeners_map(const StringName &p_name);
 	void clear();
+
+	static _ALWAYS_INLINE_ void _call_with_payload(const Callable &p_callback, const Variant &p_payload) {
+		if (!p_callback.is_valid()) {
+			return;
+		}
+		Variant ret;
+		Callable::CallError ce;
+		const Variant *argptrs[1];
+		argptrs[0] = &p_payload;
+		p_callback.callp(argptrs, 1, ret, ce);
+		if (ce.error != Callable::CallError::CALL_OK) {
+			ERR_PRINT(vformat("Error calling ZyiUtilEmitter listener '%s' to callable: %s.", String(p_callback.get_method()), Variant::get_callable_error_text(p_callback, argptrs, 1, ce)));
+		}
+	}
 };
 
 #endif /* UTIL_EMITTER_H */

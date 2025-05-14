@@ -22,7 +22,7 @@ void ZyiUtilCallableHelper::erase_callable_from_array(Array p_value, const Varia
 		Variant item = p_value[i];
 		if (item.get_type() == Variant::CALLABLE) {
 			Callable callable = item.operator Callable();
-			if (callable.get_object_id() == handler.get_object_id() && callable.get_method() == handler.get_method()) {
+			if (is_same_callable(callable, handler)) {
 				p_value.remove_at(i);
 				return;
 			}

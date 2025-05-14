@@ -15,54 +15,29 @@ bool ZyiUtilEmitter::check_has_listener(const StringName &p_name) const {
 	return listener_map.has(p_name);
 }
 
-bool ZyiUtilEmitter::call_listener(const Variant &p_value, const Variant &p_payload) {
-	if (p_value.get_type() == Variant::OBJECT) {
-		ZyiUtilCallableObject *obj = Object::cast_to<ZyiUtilCallableObject>(p_value);
-		if (obj) {
-			if (!obj->is_valid()) {
-				return false;
-			}
-			obj->call_with_payload(p_payload);
-			obj->remove_handler();
-			return false;
-		}
-		return false;
-	} else {
-		Callable handler = p_value;
-		if (!handler.is_valid()) {
-			return false;
-		}
-		Variant ret;
-		Callable::CallError ce;
-		const Variant *argptrs[1];
-		argptrs[0] = &p_payload;
-		handler.callp(argptrs, 1, ret, ce);
-		if (ce.error != Callable::CallError::CALL_OK) {
-			ERR_PRINT(vformat("Error calling ZyiUtilEmitter listener '%s' to callable: %s.", String(handler.get_method()), Variant::get_callable_error_text(handler, argptrs, 1, ce)));
-		}
-		return true;
-	}
-}
-
 void ZyiUtilEmitter::on(const StringName &p_name, const Callable &p_callback) {
-	_on(p_name, p_callback);
+	_on(p_name, p_callback, false);
 }
 
-void ZyiUtilEmitter::_on(const StringName &p_name, const Variant &p_callback) {
-	Array *items = listener_map.getptr(p_name);
-	if (!items) {
-		listener_map[p_name] = Array();
-		items = &listener_map[p_name];
+void ZyiUtilEmitter::_on(const StringName &p_name, const Callable &p_callback, bool p_once) {
+	std::vector<ZyiUtilEmitter::InternalListenerItem> *data = listener_map.getptr(p_name);
+	if (data == nullptr) {
+		listener_map[p_name] = std::vector<ZyiUtilEmitter::InternalListenerItem>();
+		data = &listener_map[p_name];
 	}
-	items->push_back(p_callback);
+	data->push_back(InternalListenerItem{ p_callback, p_once });
 }
 
 void ZyiUtilEmitter::off(const StringName &p_name, const Callable &p_callback) {
-	Array *items = listener_map.getptr(p_name);
-	if (!items) {
+	std::vector<ZyiUtilEmitter::InternalListenerItem> *data = listener_map.getptr(p_name);
+	if (data == nullptr) {
 		return;
 	}
-	ZyiUtilCallableHelper::erase_callable_from_array(*items, p_callback);
+	data->erase(std::remove_if(data->begin(), data->end(),
+						[&p_callback](const InternalListenerItem &item) {
+							return ZyiUtilCallableHelper::is_same_callable(item.callback, p_callback);
+						}),
+			data->end());
 }
 
 bool ZyiUtilEmitter::off_all(const StringName &p_name) {
@@ -70,28 +45,40 @@ bool ZyiUtilEmitter::off_all(const StringName &p_name) {
 }
 
 void ZyiUtilEmitter::once(const StringName &p_name, const Callable &p_callback) {
-	_on(p_name, ZyiUtilCallableObject::create(p_callback));
+	_on(p_name, p_callback, true);
 }
 
 void ZyiUtilEmitter::emit(const StringName &p_name, const Variant &p_payload) {
-	Array *items = listener_map.getptr(p_name);
-	if (!items) {
+	std::vector<ZyiUtilEmitter::InternalListenerItem> *data = listener_map.getptr(p_name);
+	if (data == nullptr) {
 		return;
 	}
-	LocalVector<int64_t> invalid_indices;
-	int64_t size = items->size();
+	int64_t size = data->size();
+	LocalVector<Callable> callback_list;
 	for (int64_t i = 0; i < size; i++) {
-		if (!call_listener((*items)[i], p_payload)) {
-			invalid_indices.push_back(i);
+		ZyiUtilEmitter::InternalListenerItem &listener_item = (*data)[i];
+		if (listener_item.invalid) {
+			continue;
+		}
+		if (listener_item.callback.is_valid()) {
+			// 先复制出去，避免这里直接执行callback触发off导致data被修改
+			callback_list.push_back(listener_item.callback);
+			if (listener_item.once) {
+				listener_item.invalid = true;
+			}
+		} else {
+			listener_item.invalid = true;
 		}
 	}
-	if (invalid_indices.is_empty()) {
-		return;
+	for (int64_t i = 0; i < callback_list.size(); i++) {
+		_call_with_payload(callback_list[i], p_payload);
 	}
-	// 先删除大的索引，这样删除后的移位代价更小
-	for (int64_t i = invalid_indices.size() - 1; i >= 0; i--) {
-		items->remove_at(invalid_indices[i]);
-	}
+	// 删除所有 invalid 的元素
+	data->erase(std::remove_if(data->begin(), data->end(),
+						[](const InternalListenerItem &item) {
+							return item.invalid;
+						}),
+			data->end());
 }
 
 void ZyiUtilEmitter::clear_listeners_map(const StringName &p_name) {
