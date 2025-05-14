@@ -15,6 +15,9 @@ protected:
 	static void _bind_methods();
 
 public:
+	_ALWAYS_INLINE_ static bool is_same_callable(const Callable &p_a, const Callable &p_b) {
+		return p_a.get_object_id() == p_b.get_object_id() && p_a.get_method() == p_b.get_method();
+	}
 	static Variant try_callv(Object *p_object, String method, const Array &args = {});
 	static void erase_callable_from_array(Array p_value, const Variant &p_callable);
 };
