@@ -33,11 +33,13 @@ void ZyiUtilEmitter::off(const StringName &p_name, const Callable &p_callback) {
 	if (data == nullptr) {
 		return;
 	}
-	data->erase(std::remove_if(data->begin(), data->end(),
-						[&p_callback](const InternalListenerItem &item) {
-							return ZyiUtilCallableHelper::is_same_callable(item.callback, p_callback);
-						}),
-			data->end());
+	std::vector<ZyiUtilEmitter::InternalListenerItem>::iterator it = std::find_if(data->begin(), data->end(),
+			[&p_callback](const InternalListenerItem &item) {
+				return ZyiUtilCallableHelper::is_same_callable(item.callback, p_callback);
+			});
+	if (it != data->end()) {
+		data->erase(it);
+	}
 }
 
 bool ZyiUtilEmitter::off_all(const StringName &p_name) {
