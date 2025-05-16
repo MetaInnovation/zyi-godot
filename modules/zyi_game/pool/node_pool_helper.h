@@ -28,7 +28,7 @@ public:
 	static void handle_lazy_pool_reready(Node *node);
 	static Node *prepare_node_by_scene(const Ref<PackedScene> &scene, Ref<ZyiNodePool> pool);
 	static void release_node(Node *node, Ref<ZyiNodePool> pool);
-	static void lazy_release_pool_node(Node *node, Ref<ZyiNodePool> pool, Ref<ZyiUtilCallableObject> p_callable_obj = nullptr);
+	static void lazy_release_pool_node(Node *node, Ref<ZyiNodePool> pool, Ref<ZyiUtilCallableObject> p_callable_obj);
 };
 
 #endif /* NODE2D_POOL_HELPER_H */
