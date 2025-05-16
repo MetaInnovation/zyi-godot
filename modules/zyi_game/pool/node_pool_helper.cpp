@@ -38,7 +38,10 @@ void ZyiNodePoolHelper::release_node(Node *node, Ref<ZyiNodePool> pool) {
 	if (!node || node->is_queued_for_deletion()) {
 		return;
 	}
-	SceneTree *tree = node->get_tree();
+	SceneTree *tree = nullptr;
+	if (node->is_inside_tree()) {
+		tree = node->get_tree();
+	}
 	ZyiGameNodePoolManager::recycle_object(node);
 	Node2D *node2d = Object::cast_to<Node2D>(node);
 	if (node2d) {
@@ -59,7 +62,7 @@ void ZyiNodePoolHelper::release_node(Node *node, Ref<ZyiNodePool> pool) {
 		obj->handler = callable_mp_static(&ZyiNodePoolHelper::lazy_release_pool_node).bind(node, pool, obj);
 		tree->connect("physics_frame", callable_mp(obj.ptr(), &ZyiUtilCallableObject::call_without_payload), CONNECT_ONE_SHOT);
 	} else {
-		callable_mp_static(&ZyiNodePoolHelper::lazy_release_pool_node).call_deferred(node, pool);
+		callable_mp_static(&ZyiNodePoolHelper::lazy_release_pool_node).call_deferred(node, pool, Variant());
 	}
 }
 
