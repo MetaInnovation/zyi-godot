@@ -2,10 +2,10 @@
 
 void ZyiUtilEmitter::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("check_has_listener", "event_name"), &ZyiUtilEmitter::check_has_listener);
-	ClassDB::bind_method(D_METHOD("on", "event_name", "callback"), &ZyiUtilEmitter::on);
-	ClassDB::bind_method(D_METHOD("off", "event_name", "callback"), &ZyiUtilEmitter::off);
+	ClassDB::bind_method(D_METHOD("on", "event_name", "callback", "unique_key"), &ZyiUtilEmitter::on, DEFVAL(""));
+	ClassDB::bind_method(D_METHOD("off", "event_name", "callback", "unique_key"), &ZyiUtilEmitter::off, DEFVAL(""));
 	ClassDB::bind_method(D_METHOD("off_all", "event_name"), &ZyiUtilEmitter::off_all);
-	ClassDB::bind_method(D_METHOD("once", "event_name", "callback"), &ZyiUtilEmitter::once);
+	ClassDB::bind_method(D_METHOD("once", "event_name", "callback", "unique_key"), &ZyiUtilEmitter::once, DEFVAL(""));
 	ClassDB::bind_method(D_METHOD("emit", "event_name", "payload"), &ZyiUtilEmitter::emit, DEFVAL(Variant()));
 	ClassDB::bind_method(D_METHOD("clear_listeners_map", "event_name"), &ZyiUtilEmitter::clear_listeners_map);
 	ClassDB::bind_method(D_METHOD("clear"), &ZyiUtilEmitter::clear);
@@ -15,27 +15,31 @@ bool ZyiUtilEmitter::check_has_listener(const StringName &p_name) const {
 	return listener_map.has(p_name);
 }
 
-void ZyiUtilEmitter::on(const StringName &p_name, const Callable &p_callback) {
-	_on(p_name, p_callback, false);
+void ZyiUtilEmitter::on(const StringName &p_name, const Callable &p_callback, String p_unique_key) {
+	_on(p_name, p_callback, false, p_unique_key);
 }
 
-void ZyiUtilEmitter::_on(const StringName &p_name, const Callable &p_callback, bool p_once) {
+void ZyiUtilEmitter::_on(const StringName &p_name, const Callable &p_callback, bool p_once, String p_unique_key) {
 	std::vector<ZyiUtilEmitter::InternalListenerItem> *data = listener_map.getptr(p_name);
 	if (data == nullptr) {
 		listener_map[p_name] = std::vector<ZyiUtilEmitter::InternalListenerItem>();
 		data = &listener_map[p_name];
 	}
-	data->push_back(InternalListenerItem{ p_callback, p_once });
+	data->emplace_back();
+	ZyiUtilEmitter::InternalListenerItem &item = data->back();
+	item.callback = p_callback;
+	item.once = p_once;
+	item.unique_key = p_unique_key;
 }
 
-void ZyiUtilEmitter::off(const StringName &p_name, const Callable &p_callback) {
+void ZyiUtilEmitter::off(const StringName &p_name, const Callable &p_callback, String p_unique_key) {
 	std::vector<ZyiUtilEmitter::InternalListenerItem> *data = listener_map.getptr(p_name);
 	if (data == nullptr) {
 		return;
 	}
 	std::vector<ZyiUtilEmitter::InternalListenerItem>::iterator it = std::find_if(data->begin(), data->end(),
-			[&p_callback](const InternalListenerItem &item) {
-				return ZyiUtilCallableHelper::is_same_callable(item.callback, p_callback);
+			[&p_callback, &p_unique_key](const InternalListenerItem &item) {
+				return ZyiUtilCallableHelper::is_same_callable(item.callback, p_callback) && item.unique_key == p_unique_key;
 			});
 	if (it != data->end()) {
 		data->erase(it);
@@ -46,8 +50,8 @@ bool ZyiUtilEmitter::off_all(const StringName &p_name) {
 	return listener_map.erase(p_name);
 }
 
-void ZyiUtilEmitter::once(const StringName &p_name, const Callable &p_callback) {
-	_on(p_name, p_callback, true);
+void ZyiUtilEmitter::once(const StringName &p_name, const Callable &p_callback, String p_unique_key) {
+	_on(p_name, p_callback, true, p_unique_key);
 }
 
 void ZyiUtilEmitter::emit(const StringName &p_name, const Variant &p_payload) {
