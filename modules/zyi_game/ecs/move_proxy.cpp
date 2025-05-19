@@ -5,6 +5,7 @@ void ZyiMoveComponentProxy::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_cur_velocity"), &ZyiMoveComponentProxy::get_cur_velocity);
 	ClassDB::bind_method(D_METHOD("get_max_velocity_rate"), &ZyiMoveComponentProxy::get_max_velocity_rate);
 	ClassDB::bind_method(D_METHOD("get_extra_force"), &ZyiMoveComponentProxy::get_extra_force);
+	ClassDB::bind_method(D_METHOD("get_move_disabled"), &ZyiMoveComponentProxy::get_move_disabled);
 	ClassDB::bind_method(D_METHOD("register_to_system", "system", "node", "can_knockback", "flags", "min_follow_dist_squared"), &ZyiMoveComponentProxy::register_to_system, DEFVAL(false), DEFVAL(ZyiMoveConstant::MOVE_FLAG_NORMAL), DEFVAL(900));
 	ClassDB::bind_method(D_METHOD("unregister"), &ZyiMoveComponentProxy::unregister);
 	ClassDB::bind_method(D_METHOD("is_registered"), &ZyiMoveComponentProxy::is_registered);
@@ -52,6 +53,7 @@ void ZyiMoveComponentProxy::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "max_velocity_rate"), "", "get_max_velocity_rate");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "extra_force"), "", "get_extra_force");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "flags"), "", "get_flags");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "move_disabled"), "", "get_move_disabled");
 }
 
 Ref<ZyiMoveComponentProxy> ZyiMoveComponentProxy::create() {
@@ -114,6 +116,27 @@ Vector2 ZyiMoveComponentProxy::get_extra_force() {
 			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
 			if (ptr) {
 				result = ptr->extra_force;
+			}
+		} break;
+		default:
+			break;
+	}
+	return result;
+}
+
+bool ZyiMoveComponentProxy::get_move_disabled() {
+	bool result = false;
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				result = ptr->move_disabled;
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				result = ptr->move_disabled;
 			}
 		} break;
 		default:
