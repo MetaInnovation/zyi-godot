@@ -31,6 +31,7 @@ public:
 	Vector2 get_cur_velocity();
 	double get_max_velocity_rate();
 	Vector2 get_extra_force();
+	bool get_move_disabled();
 
 	void register_to_system(const Ref<ZyiMoveSystem> &p_system, Node2D *p_node, bool p_can_knockback = false, BitField<ZyiMoveConstant::Flags> p_flags = ZyiMoveConstant::MOVE_FLAG_NORMAL, int64_t p_min_follow_dist_squared = 900);
 	void on_node_tree_exiting();
