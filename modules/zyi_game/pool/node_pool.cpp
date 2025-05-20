@@ -33,6 +33,9 @@ Node *ZyiNodePool::acquire_node(bool record) {
 }
 
 void ZyiNodePool::release_node(Node *node, bool record) {
+	if (node == nullptr) {
+		return;
+	}
 	_vector_node_pool.push_back(node);
 	if (record) {
 		_node_id_set.add(node->get_instance_id());

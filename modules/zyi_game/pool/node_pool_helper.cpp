@@ -13,7 +13,7 @@ void ZyiNodePoolHelper::_on_node_tree_entered(Node *node) {
 }
 
 void ZyiNodePoolHelper::handle_lazy_pool_reready(Node *node) {
-	if (node->is_inside_tree()) {
+	if (node != nullptr && node->is_inside_tree()) {
 		ZyiUtilCallableHelper::try_callv(node, METHOD_RE_READY);
 	}
 }
