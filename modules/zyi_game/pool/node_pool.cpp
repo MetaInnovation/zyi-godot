@@ -5,6 +5,7 @@ void ZyiNodePool::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("acquire_node", "record"), &ZyiNodePool::acquire_node, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("release_node", "node", "record"), &ZyiNodePool::release_node, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("release_node_by_id", "node_id", "record"), &ZyiNodePool::release_node_by_id, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("has_node", "node"), &ZyiNodePool::has_node);
 	ClassDB::bind_method(D_METHOD("get_available_count"), &ZyiNodePool::get_available_count);
 	ClassDB::bind_method(D_METHOD("clean"), &ZyiNodePool::clean);
@@ -40,6 +41,14 @@ void ZyiNodePool::release_node(Node *node, bool record) {
 	if (record) {
 		_node_id_set.add(node->get_instance_id());
 	}
+}
+void ZyiNodePool::release_node_by_id(ObjectID p_node_id, bool record) {
+	Object *object = ObjectDB::get_instance(p_node_id);
+	if (object == nullptr) {
+		return;
+	}
+	Node *node = Object::cast_to<Node>(object);
+	release_node(node, record);
 }
 
 bool ZyiNodePool::has_node(Node *node) {

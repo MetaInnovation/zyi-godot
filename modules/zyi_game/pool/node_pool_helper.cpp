@@ -3,16 +3,21 @@
 const String ZyiNodePoolHelper::METHOD_RE_READY = "pool_re_ready";
 
 void ZyiNodePoolHelper::_bind_methods() {
-	ClassDB::bind_static_method("ZyiNodePoolHelper", D_METHOD("handle_lazy_pool_reready", "node"), &ZyiNodePoolHelper::handle_lazy_pool_reready);
+	ClassDB::bind_static_method("ZyiNodePoolHelper", D_METHOD("handle_lazy_pool_reready", "node_id"), &ZyiNodePoolHelper::handle_lazy_pool_reready);
 	ClassDB::bind_static_method("ZyiNodePoolHelper", D_METHOD("prepare_node_by_scene", "scene", "pool"), &ZyiNodePoolHelper::prepare_node_by_scene);
 	ClassDB::bind_static_method("ZyiNodePoolHelper", D_METHOD("release_node", "node", "pool"), &ZyiNodePoolHelper::release_node);
 }
 
 void ZyiNodePoolHelper::_on_node_tree_entered(Node *node) {
-	callable_mp_static(&ZyiNodePoolHelper::handle_lazy_pool_reready).call_deferred(node);
+	callable_mp_static(&ZyiNodePoolHelper::handle_lazy_pool_reready).call_deferred(node->get_instance_id());
 }
 
-void ZyiNodePoolHelper::handle_lazy_pool_reready(Node *node) {
+void ZyiNodePoolHelper::handle_lazy_pool_reready(ObjectID p_node_id) {
+	Object *object = ObjectDB::get_instance(p_node_id);
+	if (object == nullptr) {
+		return;
+	}
+	Node *node = Object::cast_to<Node>(object);
 	if (node != nullptr && node->is_inside_tree()) {
 		ZyiUtilCallableHelper::try_callv(node, METHOD_RE_READY);
 	}
@@ -59,16 +64,16 @@ void ZyiNodePoolHelper::release_node(Node *node, Ref<ZyiNodePool> pool) {
 	if (tree != nullptr) {
 		Ref<ZyiUtilCallableObject> obj = memnew(ZyiUtilCallableObject());
 		// 这里有互相引用，需要在 lazy_release_pool_node 内主动释放
-		obj->handler = callable_mp_static(&ZyiNodePoolHelper::lazy_release_pool_node).bind(node, pool, obj);
+		obj->handler = callable_mp_static(&ZyiNodePoolHelper::lazy_release_pool_node).bind(node->get_instance_id(), pool, obj);
 		tree->connect("physics_frame", callable_mp(obj.ptr(), &ZyiUtilCallableObject::call_without_payload), CONNECT_ONE_SHOT);
 	} else {
-		callable_mp_static(&ZyiNodePoolHelper::lazy_release_pool_node).call_deferred(node, pool, Variant());
+		callable_mp_static(&ZyiNodePoolHelper::lazy_release_pool_node).call_deferred(node->get_instance_id(), pool, Variant());
 	}
 }
 
-void ZyiNodePoolHelper::lazy_release_pool_node(Node *node, Ref<ZyiNodePool> pool, Ref<ZyiUtilCallableObject> p_callable_obj) {
+void ZyiNodePoolHelper::lazy_release_pool_node(ObjectID p_node_id, Ref<ZyiNodePool> pool, Ref<ZyiUtilCallableObject> p_callable_obj) {
 	// 延迟加入对象池
-	callable_mp(pool.ptr(), &ZyiNodePool::release_node).call_deferred(node, false);
+	callable_mp(pool.ptr(), &ZyiNodePool::release_node_by_id).call_deferred(p_node_id, false);
 	if (p_callable_obj.is_valid()) {
 		p_callable_obj->remove_handler();
 		p_callable_obj.unref();
