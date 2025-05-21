@@ -26,6 +26,7 @@ public:
 	static Ref<ZyiNodePool> create(int64_t capacity = POOL_INIT_CAPACITY);
 	Node *acquire_node(bool record = false);
 	void release_node(Node *node, bool record = false);
+	void release_node_by_id(ObjectID p_node_id, bool record = false);
 	bool has_node(Node *node);
 	int64_t get_available_count() const;
 	void clean();

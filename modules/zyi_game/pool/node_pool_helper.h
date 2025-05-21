@@ -25,10 +25,10 @@ public:
 	static const String METHOD_RE_READY;
 
 	static void _on_node_tree_entered(Node *node);
-	static void handle_lazy_pool_reready(Node *node);
+	static void handle_lazy_pool_reready(ObjectID p_node_id);
 	static Node *prepare_node_by_scene(const Ref<PackedScene> &scene, Ref<ZyiNodePool> pool);
 	static void release_node(Node *node, Ref<ZyiNodePool> pool);
-	static void lazy_release_pool_node(Node *node, Ref<ZyiNodePool> pool, Ref<ZyiUtilCallableObject> p_callable_obj);
+	static void lazy_release_pool_node(ObjectID p_node_id, Ref<ZyiNodePool> pool, Ref<ZyiUtilCallableObject> p_callable_obj);
 };
 
 #endif /* NODE2D_POOL_HELPER_H */
