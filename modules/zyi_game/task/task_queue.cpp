@@ -4,17 +4,21 @@ void ZyiTaskQueue::_bind_methods() {
 	ClassDB::bind_static_method("ZyiTaskQueue", D_METHOD("create"), &ZyiTaskQueue::create);
 	ClassDB::bind_method(D_METHOD("get_max_ms_per_idle"), &ZyiTaskQueue::get_max_ms_per_idle);
 	ClassDB::bind_method(D_METHOD("get_max_task_per_idle"), &ZyiTaskQueue::get_max_task_per_idle);
+	ClassDB::bind_method(D_METHOD("get_min_task_per_idle"), &ZyiTaskQueue::get_min_task_per_idle);
 	ClassDB::bind_method(D_METHOD("set_max_ms_per_idle", "value"), &ZyiTaskQueue::set_max_ms_per_idle);
 	ClassDB::bind_method(D_METHOD("set_max_task_per_idle", "value"), &ZyiTaskQueue::set_max_task_per_idle);
-	ClassDB::bind_method(D_METHOD("idle_process_task", "delta", "custom_max_ms_per_idle", "custom_max_task_per_idle"), &ZyiTaskQueue::idle_process_task, DEFVAL(0), DEFVAL(0));
+	ClassDB::bind_method(D_METHOD("set_min_task_per_idle", "value"), &ZyiTaskQueue::set_min_task_per_idle);
+	ClassDB::bind_method(D_METHOD("idle_process_task", "delta", "custom_max_ms_per_idle", "custom_max_task_per_idle", "custom_min_task_per_idle"), &ZyiTaskQueue::idle_process_task, DEFVAL(0), DEFVAL(0), DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("add_task", "handler", "args"), &ZyiTaskQueue::add_task);
 	ClassDB::bind_method(D_METHOD("clean"), &ZyiTaskQueue::clean);
 
 	BIND_CONSTANT(INIT_MAX_MS_PER_IDLE);
 	BIND_CONSTANT(INIT_MAX_TASK_PER_IDLE);
+	BIND_CONSTANT(INIT_MIN_TASK_PER_IDLE);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "max_ms_per_idle"), "set_max_ms_per_idle", "get_max_ms_per_idle");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "max_task_per_idle"), "set_max_task_per_idle", "get_max_task_per_idle");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "min_task_per_idle"), "set_min_task_per_idle", "get_min_task_per_idle");
 }
 
 Ref<ZyiTaskQueue> ZyiTaskQueue::create() {
@@ -30,6 +34,10 @@ uint16_t ZyiTaskQueue::get_max_task_per_idle() const {
 	return _max_task_per_idle;
 }
 
+uint16_t ZyiTaskQueue::get_min_task_per_idle() const {
+	return _min_task_per_idle;
+}
+
 void ZyiTaskQueue::set_max_ms_per_idle(uint16_t p_max_ms_per_idle) {
 	_max_ms_per_idle = p_max_ms_per_idle;
 }
@@ -38,7 +46,11 @@ void ZyiTaskQueue::set_max_task_per_idle(uint16_t p_max_task_per_idle) {
 	_max_task_per_idle = p_max_task_per_idle;
 }
 
-void ZyiTaskQueue::idle_process_task(double p_delta, uint16_t p_max_ms_per_idle, uint16_t p_max_task_per_idle) {
+void ZyiTaskQueue::set_min_task_per_idle(uint16_t p_min_task_per_idle) {
+	_min_task_per_idle = p_min_task_per_idle;
+}
+
+void ZyiTaskQueue::idle_process_task(double p_delta, uint16_t p_max_ms_per_idle, uint16_t p_max_task_per_idle, uint16_t p_min_task_per_idle) {
 	if (_task_queue.empty()) {
 		return;
 	}
@@ -49,11 +61,15 @@ void ZyiTaskQueue::idle_process_task(double p_delta, uint16_t p_max_ms_per_idle,
 	if (p_max_task_per_idle > 0) {
 		max_task_count = p_max_task_per_idle;
 	}
+	uint16_t min_task_count = _min_task_per_idle;
+	if (p_min_task_per_idle >= 0) {
+		min_task_count = p_min_task_per_idle;
+	}
 	uint32_t max_us = _max_ms_per_idle * 1000;
 	if (p_max_ms_per_idle > 0) {
 		max_us = p_max_ms_per_idle * 1000;
 	}
-	while (!_task_queue.empty() && task_count < max_task_count && elapsed_us < max_us) {
+	while (!_task_queue.empty() && (task_count < min_task_count || (task_count < max_task_count && elapsed_us < max_us))) {
 		InternalTask &task = _task_queue.front();
 		if (task.handler.is_valid()) {
 			task.handler.callv(task.args);
