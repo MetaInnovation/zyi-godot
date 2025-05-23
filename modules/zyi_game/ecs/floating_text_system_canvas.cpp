@@ -12,6 +12,7 @@ void ZyiFloatingTextSystemCanvas::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_digit_size", "value"), &ZyiFloatingTextSystemCanvas::set_digit_size);
 	ClassDB::bind_method(D_METHOD("get_atlas_cols"), &ZyiFloatingTextSystemCanvas::get_atlas_cols);
 	ClassDB::bind_method(D_METHOD("set_atlas_cols", "value"), &ZyiFloatingTextSystemCanvas::set_atlas_cols);
+	ClassDB::bind_method(D_METHOD("draw_all"), &ZyiFloatingTextSystemCanvas::draw_all);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "max_damage_text_count"), "set_max_damage_text_count", "get_max_damage_text_count");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "digit_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_digit_texture", "get_digit_texture");
@@ -43,48 +44,52 @@ void ZyiFloatingTextSystemCanvas::_notification(int p_notification) {
 		} break;
 		case NOTIFICATION_DRAW: {
 			// _draw
-			uint64_t current_time = Time::get_singleton()->get_ticks_msec();
-			LocalVector<size_t> to_remove_index_list;
-			for (size_t i = 0; i < _damage_text_list.size(); i++) {
-				InternalDamageTextItem &item = _damage_text_list[i];
-				uint64_t elapsed = current_time - item.start_ticks_msec;
-				if (elapsed >= MAX_LIVE_TIME || elapsed < 0) {
-					to_remove_index_list.push_back(i);
-				} else {
-					double scale_v = 1.0;
-					Vector2 pos = item.base_pos;
-					double alpha = 1.0;
-					if (elapsed < 200.0) {
-						double progress = elapsed / 200.0;
-						pos.y -= ease_out_quad(progress) * 80;
-						// 放大1.3倍
-						scale_v = 1.0 + ease_out_quad(progress) * 0.3;
-						item.top_pos = pos;
-					} else if (elapsed < 300.0) {
-						pos = item.top_pos;
-						scale_v = 1.1;
-					} else {
-						double fade_progress = (elapsed - 300.0) / (MAX_LIVE_TIME - 300.0);
-						alpha = 1.0 - ease_out_cubic(fade_progress);
-						// pos.y = item.top_pos.y - ease_out_cubic(fade_progress) * 70;
-						// scale从1.1倍开始缩小
-						scale_v = 1.1 - ease_out_quad(fade_progress) * 0.2;
-					}
-					draw_scaled_damage_text_optimized(item.value, pos, scale_v, Color(item.color, alpha));
-				}
-			}
-			// 移除过期数字
-			if (!to_remove_index_list.is_empty()) {
-				for (int64_t i = to_remove_index_list.size() - 1; i >= 0; i--) {
-					_damage_text_list.erase(_damage_text_list.begin() + to_remove_index_list[i]);
-				}
-			}
+			draw_all();
 		} break;
 	}
 }
 
+void ZyiFloatingTextSystemCanvas::draw_all() {
+	uint64_t current_time = Time::get_singleton()->get_ticks_msec();
+	LocalVector<size_t> to_remove_index_list;
+	for (size_t i = 0; i < _damage_text_list.size(); i++) {
+		InternalDamageTextItem &item = _damage_text_list[i];
+		uint64_t elapsed = current_time - item.start_ticks_msec;
+		if (elapsed >= MAX_LIVE_TIME || elapsed < 0) {
+			to_remove_index_list.push_back(i);
+		} else {
+			double scale_v = 1.0;
+			Vector2 pos = item.base_pos;
+			double alpha = 1.0;
+			if (elapsed < 200.0) {
+				double progress = elapsed / 200.0;
+				pos.y -= ease_out_quad(progress) * 80;
+				// 放大1.3倍
+				scale_v = 1.0 + ease_out_quad(progress) * 0.3;
+				item.top_pos = pos;
+			} else if (elapsed < 300.0) {
+				pos = item.top_pos;
+				scale_v = 1.1;
+			} else {
+				double fade_progress = (elapsed - 300.0) / (MAX_LIVE_TIME - 300.0);
+				alpha = 1.0 - ease_out_cubic(fade_progress);
+				// pos.y = item.top_pos.y - ease_out_cubic(fade_progress) * 70;
+				// scale从1.1倍开始缩小
+				scale_v = 1.1 - ease_out_quad(fade_progress) * 0.2;
+			}
+			draw_scaled_damage_text_optimized(item.value, pos, scale_v, Color(item.color, alpha));
+		}
+	}
+	// 移除过期数字
+	if (!to_remove_index_list.is_empty()) {
+		for (int64_t i = to_remove_index_list.size() - 1; i >= 0; i--) {
+			_damage_text_list.erase(_damage_text_list.begin() + to_remove_index_list[i]);
+		}
+	}
+}
+
 void ZyiFloatingTextSystemCanvas::show_damage_text(String p_value, const Vector2 &p_pos, Color p_color) {
-	if (max_damage_text_count >= 0 && _damage_text_list.size() >= max_damage_text_count) {
+	if (max_damage_text_count >= 0 && _damage_text_list.size() >= static_cast<size_t>(max_damage_text_count)) {
 		return;
 	}
 	uint64_t start_ticks_msec = Time::get_singleton()->get_ticks_msec();

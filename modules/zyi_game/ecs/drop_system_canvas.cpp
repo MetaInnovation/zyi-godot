@@ -18,6 +18,7 @@ void ZyiDropSystemCanvas::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("pick_all", "picker_node", "pick_range"), &ZyiDropSystemCanvas::pick_all);
 	ClassDB::bind_method(D_METHOD("clean_drop_items"), &ZyiDropSystemCanvas::clean_drop_items);
 	ClassDB::bind_method(D_METHOD("clean_picking_items"), &ZyiDropSystemCanvas::clean_picking_items);
+	ClassDB::bind_method(D_METHOD("draw_in_space", "space"), &ZyiDropSystemCanvas::draw_in_space);
 	ClassDB::bind_method(D_METHOD("add_drop_item", "texture_rect", "pos", "data"), &ZyiDropSystemCanvas::add_drop_item);
 
 	ADD_SIGNAL(MethodInfo(SNAME("pick_start"), PropertyInfo(Variant::ARRAY, "data"), PropertyInfo(Variant::OBJECT, "picker_ref", PROPERTY_HINT_RESOURCE_TYPE, "WeakRef")));
