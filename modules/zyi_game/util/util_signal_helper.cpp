@@ -49,7 +49,8 @@ void ZyiUtilSignalHelper::object_clear_connections(Object *p_object, const Strin
 	for (const Object::Connection &conn : conn_list) {
 		const Callable cb = conn.callable;
 		if (cb.is_valid()) {
-			if (cb.is_custom() && String(cb.get_method()).contains(sub)) {
+			if (cb.is_custom() && (cb.get_method() == "" || String(cb.get_method()).contains(sub))) {
+				// 避免提前取消关联: Area2D::_area_enter_tree   Area2D::_area_exit_tree
 				continue;
 			}
 			p_object->disconnect(p_name, cb);
