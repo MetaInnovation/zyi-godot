@@ -56,6 +56,7 @@ public:
 	void show_damage_text(String p_value, const Vector2 &p_pos, Color p_color);
 	Rect2 get_scaled_rect(double p_scale);
 	void draw_scaled_damage_text_optimized(String p_text, const Vector2 &p_center, double p_scale, Color p_color);
+	void clean_state();
 };
 
 #endif /* FLOATING_TEXT_SYSTEM_CANVAS_H */
