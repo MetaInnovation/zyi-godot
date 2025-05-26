@@ -13,6 +13,7 @@ void ZyiFloatingTextSystemCanvas::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_atlas_cols"), &ZyiFloatingTextSystemCanvas::get_atlas_cols);
 	ClassDB::bind_method(D_METHOD("set_atlas_cols", "value"), &ZyiFloatingTextSystemCanvas::set_atlas_cols);
 	ClassDB::bind_method(D_METHOD("draw_all"), &ZyiFloatingTextSystemCanvas::draw_all);
+	ClassDB::bind_method(D_METHOD("clean_state"), &ZyiFloatingTextSystemCanvas::clean_state);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "max_damage_text_count"), "set_max_damage_text_count", "get_max_damage_text_count");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "digit_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_digit_texture", "get_digit_texture");
@@ -133,4 +134,8 @@ void ZyiFloatingTextSystemCanvas::draw_scaled_damage_text_optimized(String p_tex
 	}
 	// 重置变换
 	draw_set_transform(Vector2());
+}
+
+void ZyiFloatingTextSystemCanvas::clean_state() {
+	_damage_text_list.clear();
 }
