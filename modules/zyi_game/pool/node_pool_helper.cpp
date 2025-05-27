@@ -24,6 +24,7 @@ Node *ZyiNodePoolHelper::prepare_node_by_scene(const Ref<PackedScene> &scene, Re
 	Node *result = pool->acquire_node();
 	if (!result) {
 		result = scene->instantiate();
+		pool->record_active_node(result);
 	} else {
 		Node2D *node2d = Object::cast_to<Node2D>(result);
 		if (node2d) {
@@ -55,6 +56,7 @@ void ZyiNodePoolHelper::release_node(Node *node, Ref<ZyiNodePool> pool) {
 	}
 	node->set_process_mode(Node::PROCESS_MODE_DISABLED);
 	ZyiUtilSignalHelper::object_clear_connections(node, SceneStringName(tree_entered));
+	ZyiUtilSignalHelper::object_safe_disconnect(node, SNAME("tree_entered"), callable_mp_static(&ZyiNodePoolHelper::_on_node_tree_entered));
 	Node *parent = node->get_parent();
 	if (parent) {
 		parent->remove_child(node);
