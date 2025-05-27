@@ -7,6 +7,7 @@ void ZyiNodePool::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("release_node", "node", "record"), &ZyiNodePool::release_node, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("release_node_by_id", "node_id", "record"), &ZyiNodePool::release_node_by_id, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("has_node", "node"), &ZyiNodePool::has_node);
+	ClassDB::bind_method(D_METHOD("record_active_node", "node"), &ZyiNodePool::record_active_node);
 	ClassDB::bind_method(D_METHOD("get_available_count"), &ZyiNodePool::get_available_count);
 	ClassDB::bind_method(D_METHOD("clean", "force_free_node"), &ZyiNodePool::clean, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("force_free_active_nodes"), &ZyiNodePool::force_free_active_nodes);
@@ -53,6 +54,12 @@ void ZyiNodePool::release_node_by_id(ObjectID p_node_id, bool record) {
 
 bool ZyiNodePool::has_node(Node *node) {
 	return node && _node_id_set.has(node->get_instance_id());
+}
+
+void ZyiNodePool::record_active_node(Node *node) {
+	if (node != nullptr && !node->is_queued_for_deletion()) {
+		_active_node_id_set.insert(node->get_instance_id());
+	}
 }
 
 int64_t ZyiNodePool::get_available_count() const {

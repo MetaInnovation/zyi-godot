@@ -35,6 +35,7 @@ public:
 	void release_node(Node *node, bool record = false);
 	void release_node_by_id(ObjectID p_node_id, bool record = false);
 	bool has_node(Node *node);
+	void record_active_node(Node *node);
 	int64_t get_available_count() const;
 	void clean(bool force_free_node = false);
 	void force_free_active_nodes();
