@@ -69,7 +69,9 @@ void ZyiUtilSet::clear() {
 }
 
 Ref<ZyiUtilSet> ZyiUtilSet::duplicate() {
-	return Ref<ZyiUtilSet>();
+	Ref<ZyiUtilSet> result = memnew(ZyiUtilSet());
+	result->_variant_set = HashSet(_variant_set);
+	return result;
 }
 
 Array ZyiUtilSet::keys() {

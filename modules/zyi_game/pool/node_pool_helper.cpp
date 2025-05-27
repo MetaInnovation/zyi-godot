@@ -14,9 +14,6 @@ void ZyiNodePoolHelper::_on_node_tree_entered(Node *node) {
 
 void ZyiNodePoolHelper::handle_lazy_pool_reready(ObjectID p_node_id) {
 	Object *object = ObjectDB::get_instance(p_node_id);
-	if (object == nullptr) {
-		return;
-	}
 	Node *node = Object::cast_to<Node>(object);
 	if (node != nullptr && node->is_inside_tree()) {
 		ZyiUtilCallableHelper::try_callv(node, METHOD_RE_READY);
@@ -41,6 +38,10 @@ Node *ZyiNodePoolHelper::prepare_node_by_scene(const Ref<PackedScene> &scene, Re
 
 void ZyiNodePoolHelper::release_node(Node *node, Ref<ZyiNodePool> pool) {
 	if (!node || node->is_queued_for_deletion()) {
+		return;
+	}
+	if (pool.is_null() || pool->is_invalid()) {
+		node->queue_free();
 		return;
 	}
 	SceneTree *tree = nullptr;
@@ -72,10 +73,18 @@ void ZyiNodePoolHelper::release_node(Node *node, Ref<ZyiNodePool> pool) {
 }
 
 void ZyiNodePoolHelper::lazy_release_pool_node(ObjectID p_node_id, Ref<ZyiNodePool> pool, Ref<ZyiUtilCallableObject> p_callable_obj) {
-	// 延迟加入对象池
-	callable_mp(pool.ptr(), &ZyiNodePool::release_node_by_id).call_deferred(p_node_id, false);
 	if (p_callable_obj.is_valid()) {
 		p_callable_obj->remove_handler();
 		p_callable_obj.unref();
 	}
+	// 延迟加入对象池
+	if (pool.is_null() || pool->is_invalid()) {
+		Object *object = ObjectDB::get_instance(p_node_id);
+		Node *node = Object::cast_to<Node>(object);
+		if (node != nullptr && !node->is_queued_for_deletion()) {
+			node->queue_free();
+		}
+		return;
+	}
+	callable_mp(pool.ptr(), &ZyiNodePool::release_node_by_id).call_deferred(p_node_id, false);
 }

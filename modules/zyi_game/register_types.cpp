@@ -2,6 +2,7 @@
 
 #include "core/object/class_db.h"
 
+#include "./util/util_async.h"
 #include "./util/util_attribute.h"
 #include "./util/util_callable_helper.h"
 #include "./util/util_callable_object.h"
@@ -48,6 +49,7 @@ void initialize_zyi_game_module(ModuleInitializationLevel p_level) {
 	GDREGISTER_CLASS(ZyiUtilSignalHelper);
 	GDREGISTER_CLASS(ZyiUtilAttribute);
 	GDREGISTER_CLASS(ZyiUtilConfigurableAttributeAccessor);
+	GDREGISTER_CLASS(ZyiUtilAsync);
 
 	GDREGISTER_CLASS(ZyiDamageConstant);
 	GDREGISTER_CLASS(ZyiDamageExtraMetaResource);

@@ -36,6 +36,9 @@ bool ZyiUtilCallableObject::is_valid() const {
 
 Variant ZyiUtilCallableObject::call_with_payload(const Variant &p_payload) const {
 	Variant ret;
+	if (!handler.is_valid()) {
+		return ret;
+	}
 	Callable::CallError ce;
 	const Variant *argptrs[1];
 	argptrs[0] = &p_payload;
@@ -48,6 +51,9 @@ Variant ZyiUtilCallableObject::call_with_payload(const Variant &p_payload) const
 
 Variant ZyiUtilCallableObject::try_callv(const Array &p_args) const {
 	Variant ret;
+	if (!handler.is_valid()) {
+		return ret;
+	}
 	Callable::CallError ce;
 	int p_argcount = p_args.size();
 	const Variant **argptrs = nullptr;
