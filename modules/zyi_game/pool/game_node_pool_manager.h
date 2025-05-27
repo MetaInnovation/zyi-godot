@@ -43,7 +43,7 @@ public:
 	Ref<ZyiNodePool> add_pool(String key, int64_t capacity = ZyiNodePool::POOL_INIT_CAPACITY);
 	Ref<ZyiNodePool> get_pool(String key);
 	Ref<ZyiNodePool> get_or_add_pool(String key, int64_t capacity = ZyiNodePool::POOL_INIT_CAPACITY);
-	void clean();
+	void clean(bool force_free_node = false);
 };
 
 #endif /* GAME_OBJECT_POOL_MANAGER_H */

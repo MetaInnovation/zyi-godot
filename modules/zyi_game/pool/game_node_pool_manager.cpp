@@ -17,7 +17,7 @@ void ZyiGameNodePoolManager::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("add_pool", "key", "capacity"), &ZyiGameNodePoolManager::add_pool, DEFVAL(ZyiNodePool::POOL_INIT_CAPACITY));
 	ClassDB::bind_method(D_METHOD("get_pool", "key"), &ZyiGameNodePoolManager::get_pool);
 	ClassDB::bind_method(D_METHOD("get_or_add_pool", "key", "capacity"), &ZyiGameNodePoolManager::get_or_add_pool, DEFVAL(ZyiNodePool::POOL_INIT_CAPACITY));
-	ClassDB::bind_method(D_METHOD("clean"), &ZyiGameNodePoolManager::clean);
+	ClassDB::bind_method(D_METHOD("clean", "force_free_node"), &ZyiGameNodePoolManager::clean, DEFVAL(false));
 }
 
 Ref<ZyiGameNodePoolManager> ZyiGameNodePoolManager::create(int64_t capacity) {
@@ -74,10 +74,11 @@ Ref<ZyiNodePool> ZyiGameNodePoolManager::get_or_add_pool(String key, int64_t cap
 	return result;
 }
 
-void ZyiGameNodePoolManager::clean() {
+void ZyiGameNodePoolManager::clean(bool force_free_node) {
 	while (!_vector_pool_list.empty()) {
 		PoolContainer data = _vector_pool_list.back();
-		data.pool->clean();
+		data.pool->clean(force_free_node);
+		data.pool->set_invalid(true);
 		_vector_pool_list.pop_back();
 	}
 }
