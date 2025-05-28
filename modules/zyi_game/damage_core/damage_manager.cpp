@@ -95,7 +95,7 @@ Ref<ZyiDamageValue> ZyiDamageManager::calc_damage_value_with_defense(const Ref<Z
 	const int64_t damage = p_damage->get_value();
 	const int64_t real_damage = p_damage->get_real_value();
 	// 根据防御计算伤害免疫率（使用1.0时为了转为浮点运算）
-	const int64_t defense_damage_sum = p_defense->get_value() + damage;
+	const int64_t defense_damage_sum = p_defense->get_value() + 100 + 2.0 * damage;
 	double defense_immunity_radio = 0.0;
 	if (defense_damage_sum != 0) {
 		defense_immunity_radio = (double)p_defense->get_value() / (double)defense_damage_sum;
