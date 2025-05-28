@@ -155,8 +155,15 @@ struct ZyiNormalMoveComponent : public ZyiMoveBasicComponent {
 	// 当前角速度——垂直于速度方向的
 	double cur_rotation_rate;
 
+	Node2D *get_valid_move_node() {
+		if (!move_node || ObjectDB::get_instance(move_node->get_instance_id()) == nullptr || move_node->is_queued_for_deletion()) {
+			return nullptr;
+		}
+		return move_node;
+	}
 	_ALWAYS_INLINE_ void reset() {
 		ZyiMoveBasicComponent::reset();
+		move_node = nullptr;
 		force_stop_follow_callback = Callable();
 	}
 	_ALWAYS_INLINE_ void force_stop_follow() {
@@ -182,6 +189,12 @@ struct ZyiKnockbackMoveComponent {
 
 	_ALWAYS_INLINE_ bool is_in_boid_grid() {
 		return flags & (ZyiMoveConstant::MOVE_FLAG_BOID_GRID_CHILD | ZyiMoveConstant::MOVE_FLAG_BOID_GRID_STATIC);
+	}
+	Node2D *get_valid_move_node() {
+		if (!move_node || ObjectDB::get_instance(move_node->get_instance_id()) == nullptr || move_node->is_queued_for_deletion()) {
+			return nullptr;
+		}
+		return move_node;
 	}
 	_ALWAYS_INLINE_ void reset() {
 		move_node = nullptr;
@@ -220,8 +233,15 @@ struct ZyiCharacterMoveComponent : public ZyiMoveBasicComponent {
 	double knockback_deceleration_rate;
 	Callable knockback_moving_changed_callback;
 
+	CharacterBody2D *get_valid_move_node() {
+		if (!move_node || ObjectDB::get_instance(move_node->get_instance_id()) == nullptr || move_node->is_queued_for_deletion()) {
+			return nullptr;
+		}
+		return move_node;
+	}
 	_ALWAYS_INLINE_ void reset() {
 		ZyiMoveBasicComponent::reset();
+		move_node = nullptr;
 		knockback_moving = false;
 		cur_knockback_velocity = Vector2(0, 0);
 		init_knockback_velocity = Vector2(0, 0);
