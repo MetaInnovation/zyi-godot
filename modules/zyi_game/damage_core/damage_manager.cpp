@@ -94,11 +94,17 @@ TypedArray<ZyiDamageValue> ZyiDamageManager::calc_damage(const Ref<ZyiDamageAtta
 Ref<ZyiDamageValue> ZyiDamageManager::calc_damage_value_with_defense(const Ref<ZyiDamageValue> &p_damage, const Ref<ZyiDamageDefenseResource> &p_defense) {
 	const int64_t damage = p_damage->get_value();
 	const int64_t real_damage = p_damage->get_real_value();
+	const int64_t defense = p_defense->get_value();
 	// 根据防御计算伤害免疫率（使用1.0时为了转为浮点运算）
-	const int64_t defense_damage_sum = p_defense->get_value() + 100 + 2.0 * damage;
 	double defense_immunity_radio = 0.0;
-	if (defense_damage_sum != 0) {
-		defense_immunity_radio = (double)p_defense->get_value() / (double)defense_damage_sum;
+	if (defense >= 0) {
+		const int64_t defense_damage_sum = defense + 100 + 2.0 * damage;
+		// 最多为 1.0
+		defense_immunity_radio = (double)defense / (double)defense_damage_sum;
+	} else {
+		const int64_t defense_damage_sum = -defense + 100 + 2.0 * damage;
+		// 最少为 -1.0
+		defense_immunity_radio = (double)(defense) / (double)defense_damage_sum;
 	}
 	// 真实伤害剩余比例
 	const double real_damage_radio = 1.0;
