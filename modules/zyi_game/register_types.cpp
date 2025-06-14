@@ -3,6 +3,7 @@
 #include "core/object/class_db.h"
 
 #include "./util/util_async.h"
+#include "./util/util_attr_manager.h"
 #include "./util/util_attribute.h"
 #include "./util/util_callable_helper.h"
 #include "./util/util_callable_object.h"
@@ -37,6 +38,14 @@
 #include "./ecs/move_proxy.h"
 #include "./ecs/move_system.h"
 
+#include "./multiplayer/sync_consumer.h"
+#include "./multiplayer/sync_helper.h"
+#include "./multiplayer/synchronizer_animation_player_field.h"
+#include "./multiplayer/synchronizer_character_state_field.h"
+#include "./multiplayer/synchronizer_data_field.h"
+#include "./multiplayer/synchronizer_node_field.h"
+#include "./multiplayer/synchronizer_state_task.h"
+
 void initialize_zyi_game_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
 		return;
@@ -50,6 +59,7 @@ void initialize_zyi_game_module(ModuleInitializationLevel p_level) {
 	GDREGISTER_CLASS(ZyiUtilAttribute);
 	GDREGISTER_CLASS(ZyiUtilConfigurableAttributeAccessor);
 	GDREGISTER_CLASS(ZyiUtilAsync);
+	GDREGISTER_CLASS(ZyiUtilAttrManager);
 
 	GDREGISTER_CLASS(ZyiDamageConstant);
 	GDREGISTER_CLASS(ZyiDamageExtraMetaResource);
@@ -75,6 +85,14 @@ void initialize_zyi_game_module(ModuleInitializationLevel p_level) {
 	GDREGISTER_CLASS(ZyiFloatingTextSystemCanvas);
 	GDREGISTER_CLASS(ZyiMoveComponentProxy);
 	GDREGISTER_CLASS(ZyiMoveSystem);
+
+	GDREGISTER_CLASS(ZyiSyncHelper);
+	GDREGISTER_CLASS(ZyiSynchronizerDataField);
+	GDREGISTER_CLASS(ZyiSynchronizerNodeField);
+	GDREGISTER_CLASS(ZyiSynchronizerAnimationPlayerField);
+	GDREGISTER_CLASS(ZyiSynchronizerCharacterStateField);
+	GDREGISTER_CLASS(ZyiSyncConsumer);
+	GDREGISTER_CLASS(ZyiMultiplayerSynchronizerStateTask);
 }
 
 void uninitialize_zyi_game_module(ModuleInitializationLevel p_level) {
