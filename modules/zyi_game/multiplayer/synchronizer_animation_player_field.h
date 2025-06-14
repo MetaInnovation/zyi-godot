@@ -14,7 +14,7 @@ public:
 	static constexpr const char *ANIM_RESET = "RESET";
 
 	TypedArray<NodePath> animation_player_path_list;
-	TypedArray<NodePath> &get_animation_player_path_list();
+	TypedArray<NodePath> get_animation_player_path_list();
 	void set_animation_player_path_list(const TypedArray<NodePath> &p_animation_player_path_list);
 
 	Variant get_cache_data(Node *p_controller_node);

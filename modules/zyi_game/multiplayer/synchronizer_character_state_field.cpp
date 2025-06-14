@@ -1,6 +1,6 @@
 #include "synchronizer_character_state_field.h"
 
-Variant ZyiSynchronizerCharacterStateField::get_prepare_data(Node *p_controller_node, const Variant &p_cache_data = Variant(), bool p_is_update = false) {
+Variant ZyiSynchronizerCharacterStateField::get_prepare_data(Node *p_controller_node, const Variant &p_cache_data, bool p_is_update) {
 	if (!is_valid_unit(p_controller_node)) {
 		return Variant();
 	}
@@ -25,7 +25,7 @@ Variant ZyiSynchronizerCharacterStateField::get_prepare_data(Node *p_controller_
 	return result;
 }
 
-void ZyiSynchronizerCharacterStateField::update_data(const Variant &p_controller_node, const Variant &p_data, const String &p_value_key, const Variant &p_value, int8_t p_action = ACTION_CHANGE) {
+void ZyiSynchronizerCharacterStateField::update_data(const Variant &p_controller_node, const Variant &p_data, const String &p_value_key, const Variant &p_value, int8_t p_action) {
 	if (p_controller_node.is_null()) {
 		return;
 	}

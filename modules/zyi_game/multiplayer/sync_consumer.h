@@ -4,7 +4,7 @@
 #include "core/object/class_db.h"
 #include "core/object/ref_counted.h"
 #include "core/templates/hash_set.h"
-#include "main/node.h"
+#include "scene/main/node.h"
 #include <queue>
 
 class ZyiSyncConsumer : public RefCounted {

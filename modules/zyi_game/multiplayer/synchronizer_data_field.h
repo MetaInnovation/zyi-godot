@@ -3,7 +3,7 @@
 
 #include "core/object/class_db.h"
 #include "core/object/ref_counted.h"
-#include "main/node.h"
+#include "scene/main/node.h"
 
 class ZyiSynchronizerDataField : public RefCounted {
 	GDCLASS(ZyiSynchronizerDataField, RefCounted)

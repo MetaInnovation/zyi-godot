@@ -14,7 +14,7 @@ public:
 	TypedArray<String> property_path_list;
 	NodePath get_node_path() const;
 	void set_node_path(NodePath p_node_path);
-	TypedArray<String> &get_property_path_list();
+	TypedArray<String> get_property_path_list();
 	void set_property_path_list(const TypedArray<String> &p_property_path_list);
 
 	Variant get_cache_data(Node *p_controller_node);
