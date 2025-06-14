@@ -1,0 +1,114 @@
+#ifndef SYNCHRONIZER_STATE_TASK_H
+#define SYNCHRONIZER_STATE_TASK_H
+
+#include "core/object/class_db.h"
+#include "core/object/ref_counted.h"
+#include "core/templates/local_vector.h"
+#include "core/variant/variant_utility.h"
+#include "sync_helper.h"
+#include "synchronizer_data_field.h"
+#include <vector>
+
+class ZyiMultiplayerSynchronizerStateTask : public RefCounted {
+	GDCLASS(ZyiMultiplayerSynchronizerStateTask, RefCounted)
+
+protected:
+	static void _bind_methods();
+
+public:
+	static constexpr const int64_t INVALID_TASK_ID = -1;
+	static constexpr const char *METHOD_GET_STATE_SYNC_AUTO_META = "get_state_sync_auto_meta";
+	static constexpr const char *METHOD_IS_STATE_SYNC_VALID = "is_state_sync_valid";
+	enum UpdateType {
+		NODE,
+		PLAYER
+	};
+	struct InternalStateCacheItem {
+		int64_t index;
+		int64_t max_index;
+		Ref<ZyiSynchronizerDataField> field;
+		Variant field_cache_data;
+		Variant prepare_data;
+		Array cached_list;
+		Dictionary cached_list_key_to_index;
+		std::vector<int64_t> unused_indices;
+	};
+	struct InternalNodeData {
+		ObjectID node_id;
+		Dictionary meta;
+		std::vector<InternalStateCacheItem> state_cache;
+	};
+
+	int64_t task_id = INVALID_TASK_ID;
+	Mutex mutex;
+	bool data_prepared = false;
+	std::vector<InternalNodeData> node_list;
+	TypedArray<Dictionary> _update_data;
+	PackedByteArray _normalized_update_data;
+
+	static void rpc_apply_update_data(Node *ref_node, const PackedByteArray &p_update_data_bytes, const Callable &p_node_getter_resolver);
+	_FORCE_INLINE_ static Callable resolve_node_getter(const Callable &p_node_getter_resolver, int64_t p_update_type) {
+		Variant ret;
+		Callable::CallError ce;
+		const Variant *argptrs[1];
+		const Variant update_type = p_update_type;
+		argptrs[0] = &update_type;
+		p_node_getter_resolver.callp(argptrs, 1, ret, ce);
+		if (ce.error != Callable::CallError::CALL_OK) {
+			ERR_PRINT(vformat("Error calling ZyiMultiplayerSynchronizerStateTask resolve_node_getter '%s' to callable: %s.", String(p_node_getter_resolver.get_method()), Variant::get_callable_error_text(p_node_getter_resolver, argptrs, 1, ce)));
+		}
+		return ret;
+	}
+	_FORCE_INLINE_ static Node *resolve_node(const Callable &p_node_getter, const String &p_update_key) {
+		Variant ret;
+		if (p_node_getter.is_valid()) {
+			Callable::CallError ce;
+			const Variant *argptrs[1];
+			const Variant update_key = p_update_key;
+			argptrs[0] = &update_key;
+			p_node_getter.callp(argptrs, 1, ret, ce);
+			if (ce.error != Callable::CallError::CALL_OK) {
+				ERR_PRINT(vformat("Error calling ZyiMultiplayerSynchronizerStateTask resolve_node '%s' to callable: %s.", String(p_node_getter.get_method()), Variant::get_callable_error_text(p_node_getter, argptrs, 1, ce)));
+			}
+		}
+		if (ret.is_null()) {
+			return nullptr;
+		}
+		return Object::cast_to<Node>(ret);
+	}
+	_FORCE_INLINE_ static bool is_invalid_prepare_data(const Variant &p_value) {
+		return p_value.get_type() == Variant::NIL || (p_value.get_type() == Variant::OBJECT && p_value.is_null());
+	}
+	_FORCE_INLINE_ static PackedByteArray encode_byte_data(const Variant &p_value) {
+		return VariantUtilityFunctions::var_to_bytes(p_value);
+	}
+	_FORCE_INLINE_ static Variant decode_byte_data(const PackedByteArray &p_value) {
+		return VariantUtilityFunctions::bytes_to_var(p_value);
+	}
+	_FORCE_INLINE_ static Variant format_value(const Variant &p_value) {
+		return ZyiSyncHelper::format_variant(p_value);
+	}
+	_FORCE_INLINE_ static Variant parse_value(const Variant &p_value) {
+		return ZyiSyncHelper::parse_variant(p_value);
+	}
+	_FORCE_INLINE_ void clean_node_list() {
+		//
+	}
+	_FORCE_INLINE_ void update_data_prepared(bool p_value);
+	void add_node(Node *node, Dictionary meta);
+	PackedByteArray resolve_update_data();
+	void prepare_run_data();
+	void run();
+	void record_update(const InternalNodeData &p_node_data, const InternalStateCacheItem &p_item, const Variant &p_data, int8_t p_action);
+
+	bool add_to_pool(bool high_priority = false, String description = "");
+	bool try_finish_in_pool();
+	int64_t get_task_id() const;
+	bool is_working();
+	bool accept_work(int64_t p_id);
+	bool finish_work();
+
+	ZyiMultiplayerSynchronizerStateTask();
+};
+
+#endif /* SYNCHRONIZER_STATE_TASK_H */
