@@ -18,7 +18,7 @@ void ZyiSynchronizerNodeField::set_node_path(NodePath p_node_path) {
 	node_path = p_node_path;
 }
 
-TypedArray<String> &ZyiSynchronizerNodeField::get_property_path_list() {
+TypedArray<String> ZyiSynchronizerNodeField::get_property_path_list() {
 	return property_path_list;
 }
 

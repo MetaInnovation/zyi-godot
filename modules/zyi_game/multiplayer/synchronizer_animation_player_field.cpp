@@ -1,13 +1,13 @@
 #include "synchronizer_animation_player_field.h"
 
 void ZyiSynchronizerAnimationPlayerField::_bind_methods() {
-	ClassDB::bind_static_method("ZyiSynchronizerAnimationPlayerField", D_METHOD("get_animation_player_path_list"), &ZyiSynchronizerAnimationPlayerField::get_animation_player_path_list);
-	ClassDB::bind_static_method("ZyiSynchronizerAnimationPlayerField", D_METHOD("set_animation_player_path_list", "animation_player_path_list"), &ZyiSynchronizerAnimationPlayerField::set_animation_player_path_list);
+	ClassDB::bind_method(D_METHOD("get_animation_player_path_list"), &ZyiSynchronizerAnimationPlayerField::get_animation_player_path_list);
+	ClassDB::bind_method(D_METHOD("set_animation_player_path_list", "animation_player_path_list"), &ZyiSynchronizerAnimationPlayerField::set_animation_player_path_list);
 
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "property_path_list", PROPERTY_HINT_NODE_PATH_VALID_TYPES), "set_property_path_list", "get_property_path_list");
 }
 
-TypedArray<NodePath> &ZyiSynchronizerAnimationPlayerField::get_animation_player_path_list() {
+TypedArray<NodePath> ZyiSynchronizerAnimationPlayerField::get_animation_player_path_list() {
 	return animation_player_path_list;
 }
 
@@ -19,7 +19,7 @@ Variant ZyiSynchronizerAnimationPlayerField::get_cache_data(Node *p_controller_n
 	if (p_controller_node == nullptr || !p_controller_node->is_inside_tree()) {
 		return Variant();
 	}
-	TypedArray<ObjectID> result;
+	Array result;
 	result.resize(animation_player_path_list.size());
 	for (int i = 0; i < animation_player_path_list.size(); i++) {
 		NodePath animation_player_path = animation_player_path_list[i];

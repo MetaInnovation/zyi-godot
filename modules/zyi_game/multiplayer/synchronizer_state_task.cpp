@@ -95,7 +95,7 @@ void ZyiMultiplayerSynchronizerStateTask::prepare_run_data() {
 	}
 	LocalVector<int64_t> need_remove_index_list;
 	need_remove_index_list.reserve(node_list.size());
-	for (int64_t index = 0; index < node_list.size(); index++) {
+	for (size_t index = 0; index < node_list.size(); index++) {
 		InternalNodeData &item = node_list[index];
 		bool is_unused = true;
 		Node *node = Object::cast_to<Node>(ObjectDB::get_instance(item.node_id));
@@ -134,7 +134,7 @@ void ZyiMultiplayerSynchronizerStateTask::run() {
 	_update_data.fill(Dictionary());
 	LocalVector<int64_t> need_remove_index_list;
 	need_remove_index_list.reserve(node_list.size());
-	for (int64_t item_index = 0; item_index < node_list.size(); item_index++) {
+	for (size_t item_index = 0; item_index < node_list.size(); item_index++) {
 		InternalNodeData &item = node_list[item_index];
 		bool is_unused = true;
 		Node *node = Object::cast_to<Node>(ObjectDB::get_instance(item.node_id));
@@ -257,8 +257,8 @@ void ZyiMultiplayerSynchronizerStateTask::record_update(const InternalNodeData &
 }
 
 bool ZyiMultiplayerSynchronizerStateTask::add_to_pool(bool high_priority, String description) {
-	WorkerThreadPool::TaskID task_id = WorkerThreadPool::get_singleton()->add_task(callable_mp(this, &ZyiMultiplayerSynchronizerStateTask::run), high_priority, description);
-	return accept_work(task_id);
+	WorkerThreadPool::TaskID pool_task_id = WorkerThreadPool::get_singleton()->add_task(callable_mp(this, &ZyiMultiplayerSynchronizerStateTask::run), high_priority, description);
+	return accept_work(pool_task_id);
 }
 
 bool ZyiMultiplayerSynchronizerStateTask::try_finish_in_pool() {

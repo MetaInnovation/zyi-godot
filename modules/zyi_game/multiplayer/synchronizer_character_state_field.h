@@ -8,9 +8,6 @@
 class ZyiSynchronizerCharacterStateField : public ZyiSynchronizerDataField {
 	GDCLASS(ZyiSynchronizerCharacterStateField, ZyiSynchronizerDataField)
 
-protected:
-	static void _bind_methods();
-
 public:
 	struct InternalKeyContext {
 		int8_t type;
