@@ -88,37 +88,40 @@ void ZyiMoveBoidsGrid::update_object_leave(ObjectID p_object_id) {
 	if (!boid_object_pos_map.has(p_object_id)) {
 		return;
 	}
-	for (int i = 0; i < grid_space_count; i++) {
-		int64_t grid_index = boid_object_pos_map.get(p_object_id);
-		if (grid_index >= 0 && boid_grid[grid_index] > 0) {
-			// 移除
-			boid_grid[grid_index]--;
-		}
-		boid_object_pos_map.erase(p_object_id);
+	int64_t grid_index = boid_object_pos_map.get(p_object_id);
+	if (grid_index >= 0 && boid_grid[grid_index] > 0) {
+		// 移除
+		boid_grid[grid_index]--;
 	}
+	boid_object_pos_map.erase(p_object_id);
 }
 
 void ZyiMoveBoidsGrid::update_object_map(ObjectID p_object_id, const Vector2 &p_pos) {
 	if (p_object_id.is_null()) {
 		return;
 	}
+	uint64_t *origin_grid_index_ptr = boid_object_pos_map.getptr(p_object_id);
+	if (origin_grid_index_ptr != nullptr) {
+		// 移除
+		boid_grid[*origin_grid_index_ptr]--;
+		boid_object_pos_map.erase(p_object_id);
+	}
+	int64_t min_dist = INT64_MAX;
+	int64_t min_dist_grid_index = -1;
 	for (int i = 0; i < grid_space_count; i++) {
 		int64_t grid_index = get_grid_index(i, p_pos);
-		uint64_t *origin_grid_index_ptr = boid_object_pos_map.getptr(p_object_id);
-		if (origin_grid_index_ptr != nullptr) {
-			if (*origin_grid_index_ptr == grid_index) {
-				continue;
-			}
-			// 移除
-			boid_grid[*origin_grid_index_ptr]--;
-		}
 		if (grid_index >= 0) {
-			// 添加
-			boid_grid[grid_index]++;
-			boid_object_pos_map[p_object_id] = grid_index;
-		} else if (origin_grid_index_ptr != nullptr) {
-			boid_object_pos_map.erase(p_object_id);
+			Rect2i grid_space = grid_space_list[i];
+			int64_t dist = p_pos.distance_squared_to(grid_space.position + grid_space.size / 2);
+			if (dist < min_dist) {
+				min_dist_grid_index = grid_index;
+			}
 		}
+	}
+	if (min_dist_grid_index != -1) {
+		// 添加
+		boid_grid[min_dist_grid_index]++;
+		boid_object_pos_map[p_object_id] = min_dist_grid_index;
 	}
 }
 
