@@ -18,11 +18,11 @@ public:
 	static constexpr const int8_t MAX_RELIABLE_RPC_CALL_NODE_METHOD_RETRY = 9;
 
 	struct InternalCallData {
-		String node_path;
-		String method_name;
+		String node_path = "";
+		String method_name = "";
 		Array args;
 		Variant node_getter;
-		int8_t retry_count;
+		int8_t retry_count = 0;
 		operator String() {
 			return "[" + node_path + "," + method_name + "," + Variant(args).stringify(0) + "," + node_getter.stringify(0) + "," + retry_count + "]";
 		}
@@ -30,6 +30,7 @@ public:
 
 	Callable log_handler;
 	Node *anchor_node;
+	std::queue<InternalCallData> _add_queue;
 	std::queue<InternalCallData> _lazy_reliable_rpc_call_node_method_queue;
 	std::queue<InternalCallData> _reliable_rpc_call_node_method_queue;
 

@@ -47,9 +47,12 @@ Variant ZyiUtilAttrManager::get_v(const String &p_key) {
 		handler = data->getter;
 	}
 	Callable::CallError ce;
-	handler.callp(nullptr, 0, ret, ce);
+	const Variant *argptrs[1];
+	const Variant key = p_key;
+	argptrs[0] = &key;
+	handler.callp(argptrs, 1, ret, ce);
 	if (ce.error != Callable::CallError::CALL_OK) {
-		ERR_PRINT(vformat("Error calling ZyiUtilAttrManager get_v '%s' to callable: %s.", String(handler.get_method()), Variant::get_callable_error_text(handler, nullptr, 0, ce)));
+		ERR_PRINT(vformat("Error calling ZyiUtilAttrManager get_v '%s' to callable: %s.", String(handler.get_method()), Variant::get_callable_error_text(handler, argptrs, 1, ce)));
 	}
 	return ret;
 }

@@ -4,7 +4,7 @@ void ZyiSynchronizerAnimationPlayerField::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_animation_player_path_list"), &ZyiSynchronizerAnimationPlayerField::get_animation_player_path_list);
 	ClassDB::bind_method(D_METHOD("set_animation_player_path_list", "animation_player_path_list"), &ZyiSynchronizerAnimationPlayerField::set_animation_player_path_list);
 
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "property_path_list", PROPERTY_HINT_NODE_PATH_VALID_TYPES), "set_property_path_list", "get_property_path_list");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "animation_player_path_list", PROPERTY_HINT_TYPE_STRING, "NodePath"), "set_animation_player_path_list", "get_animation_player_path_list");
 }
 
 TypedArray<NodePath> ZyiSynchronizerAnimationPlayerField::get_animation_player_path_list() {

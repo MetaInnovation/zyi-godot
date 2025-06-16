@@ -6,7 +6,7 @@ void ZyiSyncConsumer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("unmount"), &ZyiSyncConsumer::unmount);
 	ClassDB::bind_method(D_METHOD("idle", "delta"), &ZyiSyncConsumer::idle);
 	ClassDB::bind_method(D_METHOD("call_node_method", "node_path", "method_name", "args", "node_getter"), &ZyiSyncConsumer::call_node_method, DEFVAL(Variant()));
-	ClassDB::bind_method(D_METHOD("call_node_method", "node_path", "method_name", "args", "node_getter"), &ZyiSyncConsumer::queue_reliable_rpc_call_node_method, DEFVAL(Variant()));
+	ClassDB::bind_method(D_METHOD("queue_reliable_rpc_call_node_method", "node_path", "method_name", "args", "node_getter"), &ZyiSyncConsumer::queue_reliable_rpc_call_node_method, DEFVAL(Variant()));
 }
 
 void ZyiSyncConsumer::set_log_handler(const Callable &p_handler) {
@@ -22,7 +22,11 @@ void ZyiSyncConsumer::unmount() {
 }
 
 void ZyiSyncConsumer::idle(double delta) {
-	if (_lazy_reliable_rpc_call_node_method_queue.empty() || _reliable_rpc_call_node_method_queue.empty()) {
+	while (!_add_queue.empty()) {
+		_reliable_rpc_call_node_method_queue.push(_add_queue.front());
+		_add_queue.pop();
+	}
+	if (_lazy_reliable_rpc_call_node_method_queue.empty() && _reliable_rpc_call_node_method_queue.empty()) {
 		return;
 	}
 	_flush_call_node_method_queue();
@@ -37,14 +41,14 @@ void ZyiSyncConsumer::_flush_call_node_method_queue() {
 
 void ZyiSyncConsumer::_flush_call_node_method_queue_with_type(bool is_lazy) {
 	int8_t max_retry = MAX_RELIABLE_RPC_CALL_NODE_METHOD_RETRY;
-	std::queue<InternalCallData> queue = _reliable_rpc_call_node_method_queue;
+	std::queue<InternalCallData> *queue = &_reliable_rpc_call_node_method_queue;
 	if (is_lazy) {
 		max_retry = MAX_LAZY_RELIABLE_RPC_CALL_NODE_METHOD_RETRY;
-		queue = _lazy_reliable_rpc_call_node_method_queue;
+		queue = &_lazy_reliable_rpc_call_node_method_queue;
 	}
 	HashSet<String> invalid_node_path_set;
-	while (!queue.empty()) {
-		InternalCallData &item = queue.front();
+	while (!queue->empty()) {
+		InternalCallData &item = queue->front();
 		bool valid = true;
 		if (invalid_node_path_set.has(item.node_path)) {
 			valid = false;
@@ -55,18 +59,19 @@ void ZyiSyncConsumer::_flush_call_node_method_queue_with_type(bool is_lazy) {
 			item.retry_count += 1;
 			invalid_node_path_set.insert(item.node_path);
 			if (item.retry_count >= max_retry) {
-				queue.pop();
 				if (!is_lazy) {
 					_lazy_reliable_rpc_call_node_method_queue.push(item);
 					log("rpc call failed, put to lazy retry. " + item);
 				} else {
 					log("rpc call finally failed, " + item);
 				}
+				queue->pop();
 			} else {
 				log("rpc call failed, need retry. " + item);
+				break;
 			}
 		} else {
-			queue.pop();
+			queue->pop();
 		}
 	}
 }
@@ -100,11 +105,10 @@ bool ZyiSyncConsumer::call_node_method(const String &p_node_path, const String &
 }
 
 void ZyiSyncConsumer::queue_reliable_rpc_call_node_method(const String &p_node_path, const String &p_method_name, const Array &p_args, const Variant &p_custom_node_getter) {
-	InternalCallData &item = _reliable_rpc_call_node_method_queue.emplace();
+	InternalCallData &item = _add_queue.emplace();
 	item.node_path = p_node_path;
 	item.method_name = p_method_name;
 	item.args = p_args;
 	item.retry_count = 0;
 	item.node_getter = p_custom_node_getter;
-	_flush_call_node_method_queue();
 }
