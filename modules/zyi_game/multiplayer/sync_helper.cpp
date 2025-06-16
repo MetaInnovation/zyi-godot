@@ -62,8 +62,10 @@ Variant ZyiSyncHelper::format_variant(const Variant &p_value) {
 				return Variant();
 			}
 		}
-		default:
-			break;
+		default: {
+			result[0] = "";
+			result[1] = p_value;
+		} break;
 	}
 	return result;
 }

@@ -29,12 +29,6 @@ public:
 		SYNC_ATTR_MANAGER,
 		EXTENSIBLE_STATE
 	};
-	enum InternalAttrType {
-		DEFAULT,
-		NORMAL_ATTR,
-		NUMERIC_ATTR,
-		NUMERIC_EXTRA_ATTR
-	};
 
 	_FORCE_INLINE_ String format_value_key(int8_t p_type, const String &p_key) {
 		return String::num_int64(p_type) + VALUE_KEY_SEP + p_key;

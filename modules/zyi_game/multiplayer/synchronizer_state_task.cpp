@@ -6,12 +6,15 @@ void ZyiMultiplayerSynchronizerStateTask::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("resolve_update_data"), &ZyiMultiplayerSynchronizerStateTask::resolve_update_data);
 	ClassDB::bind_method(D_METHOD("prepare_run_data"), &ZyiMultiplayerSynchronizerStateTask::prepare_run_data);
 	ClassDB::bind_method(D_METHOD("run"), &ZyiMultiplayerSynchronizerStateTask::run);
-	ClassDB::bind_method(D_METHOD("add_to_pool", "high_priority", "description"), &ZyiMultiplayerSynchronizerStateTask::add_to_pool);
+	ClassDB::bind_method(D_METHOD("add_to_pool", "high_priority", "description"), &ZyiMultiplayerSynchronizerStateTask::add_to_pool, DEFVAL(false), DEFVAL(""));
 	ClassDB::bind_method(D_METHOD("try_finish_in_pool"), &ZyiMultiplayerSynchronizerStateTask::try_finish_in_pool);
 	ClassDB::bind_method(D_METHOD("get_task_id"), &ZyiMultiplayerSynchronizerStateTask::get_task_id);
 	ClassDB::bind_method(D_METHOD("is_working"), &ZyiMultiplayerSynchronizerStateTask::is_working);
 	ClassDB::bind_method(D_METHOD("accept_work", "task_id"), &ZyiMultiplayerSynchronizerStateTask::accept_work);
 	ClassDB::bind_method(D_METHOD("finish_work"), &ZyiMultiplayerSynchronizerStateTask::finish_work);
+
+	BIND_CONSTANT(UPDATE_NODE);
+	BIND_CONSTANT(UPDATE_PLAYER);
 }
 
 void ZyiMultiplayerSynchronizerStateTask::rpc_apply_update_data(Node *ref_node, const PackedByteArray &p_update_data_bytes, const Callable &p_node_getter_resolver) {
@@ -67,7 +70,6 @@ void ZyiMultiplayerSynchronizerStateTask::add_node(Node *node, Dictionary meta) 
 	InternalNodeData &node_data = node_list.emplace_back();
 	node_data.node_id = node->get_instance_id();
 	node_data.meta = meta;
-	node_data.state_cache;
 	Array sync_list = meta["sync_list"];
 	int64_t num = sync_list.size();
 	for (int64_t index = 0; index < num; index++) {
@@ -97,7 +99,7 @@ void ZyiMultiplayerSynchronizerStateTask::prepare_run_data() {
 	need_remove_index_list.reserve(node_list.size());
 	for (size_t index = 0; index < node_list.size(); index++) {
 		InternalNodeData &item = node_list[index];
-		bool is_unused = true;
+		bool is_unused = false;
 		Node *node = Object::cast_to<Node>(ObjectDB::get_instance(item.node_id));
 		if (node == nullptr || node->is_queued_for_deletion()) {
 			is_unused = true;
@@ -120,8 +122,10 @@ void ZyiMultiplayerSynchronizerStateTask::prepare_run_data() {
 			need_remove_index_list.push_back(index);
 		}
 	}
-	for (int64_t index = need_remove_index_list.size() - 1; index >= 0; index--) {
-		node_list.erase(node_list.begin() + need_remove_index_list[index]);
+	if (!need_remove_index_list.is_empty()) {
+		for (int64_t index = need_remove_index_list.size() - 1; index >= 0; index--) {
+			node_list.erase(node_list.begin() + need_remove_index_list[index]);
+		}
 	}
 	data_prepared = true;
 }
@@ -131,16 +135,18 @@ void ZyiMultiplayerSynchronizerStateTask::run() {
 	if (!data_prepared) {
 		return;
 	}
-	_update_data.fill(Dictionary());
+	_update_data[0].operator Dictionary().clear();
+	_update_data[1].operator Dictionary().clear();
 	LocalVector<int64_t> need_remove_index_list;
 	need_remove_index_list.reserve(node_list.size());
 	for (size_t item_index = 0; item_index < node_list.size(); item_index++) {
 		InternalNodeData &item = node_list[item_index];
-		bool is_unused = true;
+		bool is_unused = false;
 		Node *node = Object::cast_to<Node>(ObjectDB::get_instance(item.node_id));
 		if (node == nullptr || node->is_queued_for_deletion()) {
 			is_unused = true;
 		} else {
+			String update_key = node->is_inside_tree() ? String(node->get_path()) : "";
 			for (ZyiMultiplayerSynchronizerStateTask::InternalStateCacheItem &cache_item : item.state_cache) {
 				if (is_invalid_prepare_data(cache_item.prepare_data)) {
 					continue;
@@ -153,7 +159,6 @@ void ZyiMultiplayerSynchronizerStateTask::run() {
 				// diff
 				Array &cached_list = cache_item.cached_list;
 				Dictionary &cached_list_key_to_index = cache_item.cached_list_key_to_index;
-				std::vector<int64_t> &unused_indices = cache_item.unused_indices;
 				Dictionary cached_list_key_visited = cached_list_key_to_index.duplicate();
 				int64_t num = data_list.size();
 				const int64_t invalid_index = -1;
@@ -169,22 +174,22 @@ void ZyiMultiplayerSynchronizerStateTask::run() {
 					const Variant &value = data[1];
 					if (cached_index == invalid_index) {
 						// 新增
-						if (unused_indices.empty()) {
+						if (cache_item.unused_indices.empty()) {
 							cached_list_key_to_index[value_key] = cached_list.size();
 							cached_list.push_back(data);
 						} else {
-							cached_index = unused_indices.back();
-							unused_indices.pop_back();
+							cached_index = cache_item.unused_indices.back();
+							cache_item.unused_indices.pop_back();
 							cached_list_key_to_index[value_key] = cached_index;
 							cached_list[cached_index] = data;
 						}
-						record_update(item, cache_item, data, ZyiSynchronizerDataField::ACTION_ADD);
+						record_update(item, cache_item, data, ZyiSynchronizerDataField::ACTION_ADD, update_key);
 					} else {
 						// 修改
 						const Array &cached = cached_list[cached_index];
 						if (field->is_data_value_changed(value_key, cached[1], value)) {
 							cached_list[cached_index] = data;
-							record_update(item, cache_item, data, ZyiSynchronizerDataField::ACTION_CHANGE);
+							record_update(item, cache_item, data, ZyiSynchronizerDataField::ACTION_CHANGE, update_key);
 						}
 					}
 				}
@@ -196,14 +201,14 @@ void ZyiMultiplayerSynchronizerStateTask::run() {
 						continue;
 					}
 					int64_t index = cached_list_key_to_index[item_key];
-					unused_indices.push_back(index);
+					cache_item.unused_indices.push_back(index);
 					cached_list_key_to_index.erase(item_key);
 					cached_list[index] = Variant();
 					Array arr;
 					arr.resize(2);
 					arr[0] = item_key;
 					arr[1] = Variant();
-					record_update(item, cache_item, arr, ZyiSynchronizerDataField::ACTION_REMOVE);
+					record_update(item, cache_item, arr, ZyiSynchronizerDataField::ACTION_REMOVE, update_key);
 				}
 			}
 		}
@@ -211,19 +216,31 @@ void ZyiMultiplayerSynchronizerStateTask::run() {
 			need_remove_index_list.push_back(item_index);
 		}
 	}
-	_normalized_update_data = encode_byte_data(_update_data);
-	for (int64_t index = need_remove_index_list.size() - 1; index >= 0; index--) {
-		node_list.erase(node_list.begin() + need_remove_index_list[index]);
+	if (!_update_data[0].operator Dictionary().is_empty() || !_update_data[1].operator Dictionary().is_empty()) {
+		_normalized_update_data = encode_byte_data(_update_data);
+	} else {
+		_normalized_update_data = PackedByteArray();
+	}
+	if (!need_remove_index_list.is_empty()) {
+		for (int64_t index = need_remove_index_list.size() - 1; index >= 0; index--) {
+			node_list.erase(node_list.begin() + need_remove_index_list[index]);
+		}
 	}
 	data_prepared = false;
 }
 
-void ZyiMultiplayerSynchronizerStateTask::record_update(const InternalNodeData &p_node_data, const InternalStateCacheItem &p_item, const Variant &p_data, int8_t p_action) {
-	int8_t update_type = p_node_data.meta.get("update_type", UpdateType::NODE);
-	const Variant update_key = p_node_data.meta.get("update_key", "");
+void ZyiMultiplayerSynchronizerStateTask::record_update(const InternalNodeData &p_node_data, const InternalStateCacheItem &p_item, const Variant &p_data, int8_t p_action, const String &p_update_key) {
+	int8_t update_type = p_node_data.meta.get("update_type", UpdateType::UPDATE_NODE);
+	Variant update_key = p_node_data.meta.get("update_key", p_update_key);
 	if (update_key == "") {
 		return;
 	}
+	Array data_arr = p_data;
+	if (data_arr[1].get_type() == Variant::NIL) {
+		return;
+	}
+	const String &value_key = data_arr[0];
+	const Variant value = format_value(data_arr[1]);
 	Dictionary update_key_to_sync_record_list = _update_data[update_type];
 	Variant sync_record_list = update_key_to_sync_record_list.get(update_key, Variant());
 	if (!sync_record_list.is_array()) {
@@ -240,9 +257,6 @@ void ZyiMultiplayerSynchronizerStateTask::record_update(const InternalNodeData &
 		value_key_to_records = Dictionary();
 		sync_record_arr[item_index] = value_key_to_records;
 	}
-	Array data_arr = p_data;
-	const String &value_key = data_arr[0];
-	const Variant value = format_value(data_arr[1]);
 	Dictionary value_key_to_records_dict = value_key_to_records;
 	Variant value_list = value_key_to_records_dict.get(value_key, Variant());
 	if (!value_list.is_array()) {

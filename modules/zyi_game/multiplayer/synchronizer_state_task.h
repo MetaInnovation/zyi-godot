@@ -20,8 +20,8 @@ public:
 	static constexpr const char *METHOD_GET_STATE_SYNC_AUTO_META = "get_state_sync_auto_meta";
 	static constexpr const char *METHOD_IS_STATE_SYNC_VALID = "is_state_sync_valid";
 	enum UpdateType {
-		NODE,
-		PLAYER
+		UPDATE_NODE,
+		UPDATE_PLAYER
 	};
 	struct InternalStateCacheItem {
 		int64_t index;
@@ -99,7 +99,7 @@ public:
 	PackedByteArray resolve_update_data();
 	void prepare_run_data();
 	void run();
-	void record_update(const InternalNodeData &p_node_data, const InternalStateCacheItem &p_item, const Variant &p_data, int8_t p_action);
+	void record_update(const InternalNodeData &p_node_data, const InternalStateCacheItem &p_item, const Variant &p_data, int8_t p_action, const String &p_update_key);
 
 	bool add_to_pool(bool high_priority = false, String description = "");
 	bool try_finish_in_pool();
