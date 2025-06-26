@@ -52,16 +52,17 @@ Variant ZyiSyncHelper::format_variant(const Variant &p_value) {
 		case Variant::COLOR: {
 			result[0] = "Color";
 			result[1] = p_value.operator Color().to_html();
-		}
+		} break;
 		case Variant::OBJECT: {
 			Object *obj = p_value;
-			if (obj->is_class("Resource")) {
+			if (obj != nullptr && obj->is_class("Resource")) {
 				result[0] = "Resource";
 				result[1] = Object::cast_to<Resource>(obj)->get_path();
 			} else {
-				return Variant();
+				result[0] = "";
+				result[1] = p_value;
 			}
-		}
+		} break;
 		default: {
 			result[0] = "";
 			result[1] = p_value;
