@@ -146,7 +146,15 @@ void ZyiMultiplayerSynchronizerStateTask::run() {
 		if (node == nullptr || node->is_queued_for_deletion()) {
 			is_unused = true;
 		} else {
-			String update_key = node->is_inside_tree() ? String(node->get_path()) : "";
+			String update_key = item.meta.get("update_key", "");
+			if (update_key == "") {
+				if (node->is_inside_tree()) {
+					update_key = node->get_path();
+				} else {
+					is_unused = true;
+					continue;
+				}
+			}
 			for (ZyiMultiplayerSynchronizerStateTask::InternalStateCacheItem &cache_item : item.state_cache) {
 				if (is_invalid_prepare_data(cache_item.prepare_data)) {
 					continue;
@@ -231,10 +239,6 @@ void ZyiMultiplayerSynchronizerStateTask::run() {
 
 void ZyiMultiplayerSynchronizerStateTask::record_update(const InternalNodeData &p_node_data, const InternalStateCacheItem &p_item, const Variant &p_data, int8_t p_action, const String &p_update_key) {
 	int8_t update_type = p_node_data.meta.get("update_type", UpdateType::UPDATE_NODE);
-	Variant update_key = p_node_data.meta.get("update_key", p_update_key);
-	if (update_key == "") {
-		return;
-	}
 	Array data_arr = p_data;
 	if (data_arr[1].get_type() == Variant::NIL) {
 		return;
@@ -242,13 +246,13 @@ void ZyiMultiplayerSynchronizerStateTask::record_update(const InternalNodeData &
 	const String &value_key = data_arr[0];
 	const Variant value = format_value(data_arr[1]);
 	Dictionary update_key_to_sync_record_list = _update_data[update_type];
-	Variant sync_record_list = update_key_to_sync_record_list.get(update_key, Variant());
+	Variant sync_record_list = update_key_to_sync_record_list.get(p_update_key, Variant());
 	if (!sync_record_list.is_array()) {
 		Array arr = Array();
 		arr.resize(p_item.max_index);
 		arr.fill(Variant());
 		sync_record_list = arr;
-		update_key_to_sync_record_list[update_key] = sync_record_list;
+		update_key_to_sync_record_list[p_update_key] = sync_record_list;
 	}
 	int64_t item_index = p_item.index;
 	Array sync_record_arr = sync_record_list;
