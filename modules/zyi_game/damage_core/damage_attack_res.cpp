@@ -128,7 +128,7 @@ Ref<ZyiDamageAttackResource> ZyiDamageAttackResource::deep_clone() {
 Ref<ZyiDamageAttackResource> ZyiDamageAttackResource::multiply(double p_rate) {
 	TypedArray<ZyiDamageAttackResource> result_children = {};
 	for (const Ref<ZyiDamageAttackResource> &item : children) {
-		result_children.push_back(item->deep_clone());
+		result_children.push_back(item->multiply(p_rate));
 	}
 	Ref<ZyiDamageAttackResource> result = memnew(ZyiDamageAttackResource(VariantUtilityFunctions::ceili(value * p_rate), VariantUtilityFunctions::ceili(real_value * p_rate), type, source, extra_meta, is_append, crit_rate, crit_damage_rate, result_children));
 	return result;
