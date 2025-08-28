@@ -55,7 +55,7 @@ public:
 	void set_children(const TypedArray<ZyiDamageAttackResource> &p_children);
 
 	Ref<ZyiDamageAttackResource> deep_clone();
-	Ref<ZyiDamageAttackResource> multiply(double p_rate);
+	Ref<ZyiDamageAttackResource> multiply(double p_rate, bool p_children_multiply = false);
 	Ref<ZyiDamageValue> build_value();
 	Dictionary merge_to_value_by_type();
 	TypedArray<ZyiDamageValue> flat_and_merge_to_value_by_type();
