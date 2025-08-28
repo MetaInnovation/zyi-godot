@@ -27,7 +27,7 @@ void ZyiDamageAttackResource::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_children", "children"), &ZyiDamageAttackResource::set_children);
 
 	ClassDB::bind_method(D_METHOD("deep_clone"), &ZyiDamageAttackResource::deep_clone);
-	ClassDB::bind_method(D_METHOD("multiply", "rate", "p_children_multiply"), &ZyiDamageAttackResource::multiply);
+	ClassDB::bind_method(D_METHOD("multiply", "rate", "p_children_multiply"), &ZyiDamageAttackResource::multiply, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("build_value"), &ZyiDamageAttackResource::build_value);
 	ClassDB::bind_method(D_METHOD("merge_to_value_by_type"), &ZyiDamageAttackResource::merge_to_value_by_type);
 	ClassDB::bind_method(D_METHOD("flat_and_merge_to_value_by_type"), &ZyiDamageAttackResource::flat_and_merge_to_value_by_type);
