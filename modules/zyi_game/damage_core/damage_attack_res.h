@@ -24,7 +24,7 @@ public:
 	// 伤害来源
 	String source = "";
 	// 额外分类的元数据，不可修改
-	Ref<ZyiDamageExtraMetaResource> extra_meta;
+	Ref<ZyiDamageExtraMetaResource> extra_meta = nullptr;
 	// 是否是附加伤害
 	bool is_append = false;
 	// 暴击几率
