@@ -149,7 +149,7 @@ void ZyiMultiplayerSynchronizerStateTask::run() {
 			String update_key = item.meta.get("update_key", "");
 			if (update_key == "") {
 				if (node->is_inside_tree()) {
-					update_key = node->get_path();
+					update_key = node->get_path().operator String();
 				} else {
 					is_unused = true;
 					continue;
@@ -202,8 +202,7 @@ void ZyiMultiplayerSynchronizerStateTask::run() {
 					}
 				}
 
-				List<Variant> keys;
-				cached_list_key_visited.get_key_list(&keys);
+				LocalVector<Variant> keys = cached_list_key_visited.get_key_list();
 				for (const String &item_key : keys) {
 					if (cached_list_key_visited[item_key].operator int64_t() == visited_index) {
 						continue;

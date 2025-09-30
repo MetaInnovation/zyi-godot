@@ -239,7 +239,7 @@ void ZyiMoveSystem::idle_physics_process_update(double p_delta) {
 		if (follow_dist_squared > 0.0 && !!component.follow_target) {
 			bool is_leave = (self_pos + component.resolve_velocity() * p_delta).distance_squared_to(follow_target_pos) > follow_dist_squared;
 			bool is_near_than_velocity = follow_dist_squared < component.cur_velocity.length_squared();
-			if (is_leave && is_near_than_velocity && Math::abs(dist_angle) < Math_PI / 2.0) {
+			if (is_leave && is_near_than_velocity && Math::abs(dist_angle) < Math::PI / 2.0) {
 				component.use_preset_pos_for_single_frame = true;
 				component.preset_pos = follow_target_pos;
 				component.last_follow_valid = false;
