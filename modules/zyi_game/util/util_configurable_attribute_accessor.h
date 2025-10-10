@@ -9,11 +9,11 @@ class ZyiUtilConfigurableAttributeAccessor : public RefCounted {
 
 private:
 	struct Data {
-		Variant value;
 		bool removed;
 		Callable getter;
 		Callable set_callback;
 	};
+	Dictionary _data;
 	HashMap<StringName, Data> _map;
 	void emit_change_without_payload();
 
@@ -24,6 +24,7 @@ public:
 	void config_key(const String &p_key, const Callable &p_getter, const Callable &p_set_callback);
 	void reserve(int64_t capacity);
 
+	Dictionary to_dict();
 	Variant get_v(const String &p_key, const Variant &p_default = Variant());
 	void set_v(const String &p_key, const Variant &p_value);
 	void remove_v(const String &p_key);

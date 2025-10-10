@@ -18,11 +18,15 @@ public:
 		Callable setter;
 	};
 	HashMap<StringName, AttrConfig> attr_map;
+	HashSet<StringName> cached_new_attr_set;
 	HashSet<StringName> force_exclude_attr_set;
 	Callable _getter;
 	Callable _setter;
 
 	static Ref<ZyiUtilAttrManager> create(const Callable &p_getter, const Callable &p_setter);
+
+	HashSet<StringName> get_cached_new_attr_set();
+	void clear_cached_new_attr();
 
 	Array get_attr_list() const;
 	bool has_attr(const String &p_key) const;

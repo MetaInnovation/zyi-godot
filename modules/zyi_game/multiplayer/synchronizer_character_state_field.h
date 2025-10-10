@@ -24,13 +24,17 @@ public:
 	static constexpr const char *METHOD_GET_SYNC_ATTR_MANAGER = "sync_get_attr_manager";
 	static constexpr const char *METHOD_FORMAT_ATTR_HANDLERS = "sync_format_attr_handlers";
 	static constexpr const char *METHOD_PARSE_ATTR_HANDLERS = "sync_parse_attr_handlers";
+	static constexpr const char *METHOD_GET_SYNC_STATE_DICT = "sync_get_state_dict";
 	enum InternalDataSourceType {
 		STATUS_SET,
 		SYNC_ATTR_MANAGER,
 		EXTENSIBLE_STATE
 	};
 
-	_FORCE_INLINE_ String format_value_key(int8_t p_type, const String &p_key) {
+	ObjectID _cache_attr_manager_id;
+	Array _cache_attr_configs;
+
+	_FORCE_INLINE_ static String format_value_key(int8_t p_type, const String &p_key) {
 		return String::num_int64(p_type) + VALUE_KEY_SEP + p_key;
 	}
 	_FORCE_INLINE_ InternalKeyContext parse_value_key(const String &p_value_key) {
@@ -65,6 +69,8 @@ public:
 		return attr_manager;
 	}
 
+	static Array threading_data_list_normalizer(const Array &p_data);
+	Callable get_threading_data_list_normalizer();
 	Variant get_prepare_data(Node *p_controller_node, const Variant &p_cache_data = Variant(), bool p_is_update = false);
 	void update_data(const Variant &p_controller_node, const Variant &p_data, const String &p_value_key, const Variant &p_value, int8_t p_action = ACTION_CHANGE);
 };

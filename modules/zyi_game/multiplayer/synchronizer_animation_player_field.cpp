@@ -23,11 +23,9 @@ Variant ZyiSynchronizerAnimationPlayerField::get_cache_data(Node *p_controller_n
 	result.resize(animation_player_path_list.size());
 	for (int i = 0; i < animation_player_path_list.size(); i++) {
 		NodePath animation_player_path = animation_player_path_list[i];
-		Node *node = nullptr;
-		if (animation_player_path.is_absolute()) {
+		Node *node = p_controller_node;
+		if (!animation_player_path.is_empty()) {
 			node = p_controller_node->get_node_or_null(animation_player_path);
-		} else {
-			node = p_controller_node->get_node_or_null(NodePath(String(p_controller_node->get_path()) + "/" + String(animation_player_path)));
 		}
 		AnimationPlayer *animation_player = Object::cast_to<AnimationPlayer>(node);
 		if (animation_player != nullptr) {
@@ -95,10 +93,6 @@ void ZyiSynchronizerAnimationPlayerField::update_data(const Variant &p_controlle
 				node->play(p_value);
 			}
 		} break;
-		case ActionType::ACTION_REMOVE:
-			node->stop();
-			node->play(ANIM_RESET);
-			break;
 		default:
 			break;
 	}

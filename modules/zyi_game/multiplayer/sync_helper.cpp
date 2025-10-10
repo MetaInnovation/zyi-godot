@@ -68,12 +68,15 @@ Variant ZyiSyncHelper::format_variant(const Variant &p_value) {
 			result[1] = p_value;
 		} break;
 	}
+	if (result[0] == "" && !p_value.is_array()) {
+		return p_value;
+	}
 	return result;
 }
 
 Variant ZyiSyncHelper::parse_variant(const Variant &p_value) {
 	if (!p_value.is_array()) {
-		return Variant();
+		return p_value;
 	}
 	Array arr = p_value;
 	String data_type = arr[0];

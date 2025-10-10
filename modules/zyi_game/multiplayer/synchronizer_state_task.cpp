@@ -12,6 +12,7 @@ void ZyiMultiplayerSynchronizerStateTask::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_working"), &ZyiMultiplayerSynchronizerStateTask::is_working);
 	ClassDB::bind_method(D_METHOD("accept_work", "task_id"), &ZyiMultiplayerSynchronizerStateTask::accept_work);
 	ClassDB::bind_method(D_METHOD("finish_work"), &ZyiMultiplayerSynchronizerStateTask::finish_work);
+	ClassDB::bind_method(D_METHOD("clean"), &ZyiMultiplayerSynchronizerStateTask::clean);
 
 	BIND_CONSTANT(UPDATE_NODE);
 	BIND_CONSTANT(UPDATE_PLAYER);
@@ -41,8 +42,8 @@ void ZyiMultiplayerSynchronizerStateTask::rpc_apply_update_data(Node *ref_node, 
 			}
 			Array sync_record_list = update_key_to_sync_record_list[update_key];
 			for (int64_t item_index = 0; item_index < sync_record_list.size(); item_index++) {
-				Variant value_key_to_records_val = sync_record_list[item_index];
-				if (value_key_to_records_val.get_type() != Variant::DICTIONARY) {
+				Variant value_key_to_data_val = sync_record_list[item_index];
+				if (value_key_to_data_val.get_type() != Variant::DICTIONARY) {
 					continue;
 				}
 				Ref<ZyiSynchronizerDataField> field = Object::cast_to<ZyiSynchronizerDataField>(sync_list[item_index]);
@@ -50,15 +51,12 @@ void ZyiMultiplayerSynchronizerStateTask::rpc_apply_update_data(Node *ref_node, 
 				if (is_invalid_prepare_data(prepare_data)) {
 					continue;
 				}
-				Dictionary value_key_to_records = value_key_to_records_val;
-				for (const String &value_key : value_key_to_records.keys()) {
-					Array records = value_key_to_records[value_key];
-					for (int64_t record_index = 0; record_index < records.size(); record_index++) {
-						Array item = records[record_index];
-						Variant value = parse_value(item[0]);
-						int8_t action = item[1];
-						field->update_data(node, prepare_data, value_key, value, action);
-					}
+				Dictionary value_key_to_data = value_key_to_data_val;
+				for (const String &value_key : value_key_to_data.keys()) {
+					Array item = value_key_to_data[value_key];
+					Variant value = parse_value(item[0]);
+					int8_t action = item[1];
+					field->update_data(node, prepare_data, value_key, value, action);
 				}
 			}
 		}
@@ -66,37 +64,48 @@ void ZyiMultiplayerSynchronizerStateTask::rpc_apply_update_data(Node *ref_node, 
 }
 
 void ZyiMultiplayerSynchronizerStateTask::add_node(Node *node, Dictionary meta) {
-	MutexLock l(mutex);
+	bool meta_cacheable = meta.get("meta_cacheable", false);
+	ObjectID node_id = node->get_instance_id();
+	if (meta_cacheable && _id_to_cached_node_data.has(node_id)) {
+		node_list.push_back(_id_to_cached_node_data[node_id]);
+		return;
+	}
 	InternalNodeData &node_data = node_list.emplace_back();
 	node_data.node_id = node->get_instance_id();
 	node_data.meta = meta;
 	Array sync_list = meta["sync_list"];
 	int64_t num = sync_list.size();
+	node_data.field_list.resize(num);
 	for (int64_t index = 0; index < num; index++) {
-		ZyiMultiplayerSynchronizerStateTask::InternalStateCacheItem &val = node_data.state_cache.emplace_back();
-		val.index = index;
-		val.max_index = num;
-		val.field = Object::cast_to<ZyiSynchronizerDataField>(sync_list[index]);
-		val.field_cache_data = val.field->get_cache_data(node);
+		ZyiSynchronizerDataField *field = Object::cast_to<ZyiSynchronizerDataField>(sync_list[index]);
+		node_data.field_list[index] = InternalFieldData{ field, field->get_cache_data(node) };
+	}
+	if (meta_cacheable) {
+		_id_to_cached_node_data[node_id] = node_data;
 	}
 }
 
 // 获取需要更新的数据
 PackedByteArray ZyiMultiplayerSynchronizerStateTask::resolve_update_data() {
 	MutexLock l(mutex);
-	PackedByteArray result = _normalized_update_data;
-	_normalized_update_data = PackedByteArray();
+	PackedByteArray result = _shared_normalized_update_data;
+	_shared_normalized_update_data = PackedByteArray();
 	return result;
 }
 
 // 准备运行数据
 void ZyiMultiplayerSynchronizerStateTask::prepare_run_data() {
-	MutexLock l(mutex);
-	if (data_prepared) {
-		return;
+	{
+		MutexLock l(mutex);
+		if (_shared_data_prepared) {
+			return;
+		}
 	}
 	LocalVector<int64_t> need_remove_index_list;
-	need_remove_index_list.reserve(node_list.size());
+	LocalVector<InternalFieldPrepareData> prepare_data_list;
+	size_t num = node_list.size();
+	need_remove_index_list.reserve(num);
+	prepare_data_list.reserve(num);
 	for (size_t index = 0; index < node_list.size(); index++) {
 		InternalNodeData &item = node_list[index];
 		bool is_unused = false;
@@ -104,16 +113,28 @@ void ZyiMultiplayerSynchronizerStateTask::prepare_run_data() {
 		if (node == nullptr || node->is_queued_for_deletion()) {
 			is_unused = true;
 		} else {
-			bool valid = false;
+			bool valid = node->is_inside_tree();
+			String update_key = item.meta.get("update_key", "");
+			if (valid && update_key == "") {
+				update_key = node->get_path().operator String();
+			}
 			if (node->has_method(METHOD_IS_STATE_SYNC_VALID)) {
 				valid = node->callv(METHOD_IS_STATE_SYNC_VALID, Array());
-			} else {
-				valid = node->is_inside_tree();
 			}
-			if (valid) {
-				for (ZyiMultiplayerSynchronizerStateTask::InternalStateCacheItem &cache_item : item.state_cache) {
-					cache_item.prepare_data = cache_item.field->get_prepare_data(node, cache_item.field_cache_data);
+			if (valid && update_key != "") {
+				size_t num = item.field_list.size();
+				LocalVector<InternalFieldPrepareDataItem> prepare_data_arr;
+				prepare_data_arr.resize(num);
+				for (size_t index = 0; index < num; index++) {
+					const InternalFieldData &field_data = item.field_list[index];
+					const Callable threading_data_list_normalizer = field_data.field->get_threading_data_list_normalizer();
+					prepare_data_arr[index] = InternalFieldPrepareDataItem{
+						threading_data_list_normalizer,
+						field_data.field->get_data_list(field_data.field->get_prepare_data(node, field_data.cache_data)),
+					};
 				}
+				int8_t update_type = item.meta.get("update_type", UpdateType::UPDATE_NODE);
+				prepare_data_list.push_back(InternalFieldPrepareData{ update_key, update_type, prepare_data_arr });
 			} else {
 				is_unused = item.meta.get("allow_outside_tree", false).operator bool() != true;
 			}
@@ -127,150 +148,131 @@ void ZyiMultiplayerSynchronizerStateTask::prepare_run_data() {
 			node_list.erase(node_list.begin() + need_remove_index_list[index]);
 		}
 	}
-	data_prepared = true;
+	{
+		MutexLock l(mutex);
+		_shared_prepare_data_list = prepare_data_list;
+		_shared_data_prepared = true;
+	}
 }
 
 void ZyiMultiplayerSynchronizerStateTask::run() {
-	MutexLock l(mutex);
-	if (!data_prepared) {
-		return;
+	LocalVector<InternalFieldPrepareData> prepare_data_list;
+	{
+		MutexLock l(mutex);
+		if (!_shared_data_prepared) {
+			return;
+		}
+		prepare_data_list = _shared_prepare_data_list;
 	}
 	_update_data[0].operator Dictionary().clear();
 	_update_data[1].operator Dictionary().clear();
-	LocalVector<int64_t> need_remove_index_list;
-	need_remove_index_list.reserve(node_list.size());
-	for (size_t item_index = 0; item_index < node_list.size(); item_index++) {
-		InternalNodeData &item = node_list[item_index];
-		bool is_unused = false;
-		Node *node = Object::cast_to<Node>(ObjectDB::get_instance(item.node_id));
-		if (node == nullptr || node->is_queued_for_deletion()) {
-			is_unused = true;
+	size_t num = prepare_data_list.size();
+	HashMap<String, LocalVector<HashMap<String, Variant>>> update_key_to_prepare_data_map;
+	for (size_t index = 0; index < num; index++) {
+		InternalFieldPrepareData field_prepare_data = prepare_data_list[index];
+		size_t pn = field_prepare_data.prepare_data_arr.size();
+		Dictionary update_key_to_sync_record_list = _update_data[field_prepare_data.update_type];
+		Variant *sync_record_list_ptr = update_key_to_sync_record_list.getptr(field_prepare_data.update_key);
+		Array sync_record_list;
+		if (sync_record_list_ptr != nullptr) {
+			sync_record_list = sync_record_list_ptr->operator Array();
+		}
+		sync_record_list.resize(pn);
+		sync_record_list.fill(Variant());
+		bool has_update_data = false;
+		update_key_to_prepare_data_map[field_prepare_data.update_key] = LocalVector<HashMap<String, Variant>>();
+		LocalVector<HashMap<String, Variant>> &map_list = update_key_to_prepare_data_map[field_prepare_data.update_key];
+		map_list.resize(pn);
+		const LocalVector<HashMap<String, Variant>> *prev_prepare_data_map_list = _prev_update_key_to_prepare_data_map.getptr(field_prepare_data.update_key);
+		if (prev_prepare_data_map_list == nullptr) {
+			// 所有都是新增
+			for (size_t pi = 0; pi < pn; pi++) {
+				const InternalFieldPrepareDataItem &field_prepare_data_item = field_prepare_data.prepare_data_arr[pi];
+				Array prepare_data = field_prepare_data_item.prepare_data;
+				if (field_prepare_data_item.threading_data_list_normalizer.is_valid()) {
+					prepare_data = field_prepare_data_item.threading_data_list_normalizer.call(prepare_data);
+				}
+				if (prepare_data.is_empty()) {
+					continue;
+				}
+				Dictionary value_key_to_data_dict;
+				HashMap<String, Variant> map;
+				for (const Array &data_item : prepare_data) {
+					const Variant &value = data_item[1];
+					if (value.get_type() == Variant::NIL) {
+						continue;
+					}
+					Array arr = { format_value(value), ZyiSynchronizerDataField::ACTION_ADD };
+					const String &value_key = data_item[0];
+					value_key_to_data_dict[value_key] = arr;
+					map[value_key] = value;
+				}
+				if (!map.is_empty()) {
+					map_list[pi] = map;
+				}
+				if (!value_key_to_data_dict.is_empty()) {
+					has_update_data = true;
+					sync_record_list[pi] = value_key_to_data_dict;
+				}
+			}
 		} else {
-			String update_key = item.meta.get("update_key", "");
-			if (update_key == "") {
-				if (node->is_inside_tree()) {
-					update_key = node->get_path().operator String();
-				} else {
-					is_unused = true;
+			// 需要 diff
+			for (size_t pi = 0; pi < pn; pi++) {
+				const InternalFieldPrepareDataItem &field_prepare_data_item = field_prepare_data.prepare_data_arr[pi];
+				Array prepare_data = field_prepare_data_item.prepare_data;
+				if (field_prepare_data_item.threading_data_list_normalizer.is_valid()) {
+					prepare_data = field_prepare_data_item.threading_data_list_normalizer.call(prepare_data);
+				}
+				if (prepare_data.is_empty()) {
 					continue;
 				}
-			}
-			for (ZyiMultiplayerSynchronizerStateTask::InternalStateCacheItem &cache_item : item.state_cache) {
-				if (is_invalid_prepare_data(cache_item.prepare_data)) {
-					continue;
-				}
-				Ref<ZyiSynchronizerDataField> &field = cache_item.field;
-				Array data_list = field->get_data_list(cache_item.prepare_data);
-				if (data_list.is_empty()) {
-					continue;
-				}
-				// diff
-				Array &cached_list = cache_item.cached_list;
-				Dictionary &cached_list_key_to_index = cache_item.cached_list_key_to_index;
-				Dictionary cached_list_key_visited = cached_list_key_to_index.duplicate();
-				int64_t num = data_list.size();
-				const int64_t invalid_index = -1;
-				const int64_t visited_index = -2;
-				for (int64_t index = 0; index < num; index++) {
-					Array data = data_list[index];
-					const String &value_key = data[0];
-					int64_t cached_index = cached_list_key_to_index.get(value_key, invalid_index);
-					if (cached_list_key_visited.get(value_key, invalid_index).operator int64_t() == visited_index) {
+				Dictionary value_key_to_data_dict;
+				HashMap<String, Variant> map;
+				const HashMap<String, Variant> &prev_map = prev_prepare_data_map_list->operator[](pi);
+				for (const Array &data_item : prepare_data) {
+					const Variant &value = data_item[1];
+					if (value.get_type() == Variant::NIL) {
 						continue;
 					}
-					cached_list_key_visited[value_key] = visited_index;
-					const Variant &value = data[1];
-					if (cached_index == invalid_index) {
+					const String &value_key = data_item[0];
+					map[value_key] = value;
+					const Variant *prev_value = prev_map.getptr(value_key);
+					int8_t action;
+					if (prev_value == nullptr) {
 						// 新增
-						if (cache_item.unused_indices.empty()) {
-							cached_list_key_to_index[value_key] = cached_list.size();
-							cached_list.push_back(data);
-						} else {
-							cached_index = cache_item.unused_indices.back();
-							cache_item.unused_indices.pop_back();
-							cached_list_key_to_index[value_key] = cached_index;
-							cached_list[cached_index] = data;
-						}
-						record_update(item, cache_item, data, ZyiSynchronizerDataField::ACTION_ADD, update_key);
-					} else {
+						action = ZyiSynchronizerDataField::ACTION_ADD;
+					} else if (value != *prev_value) {
 						// 修改
-						const Array &cached = cached_list[cached_index];
-						if (field->is_data_value_changed(value_key, cached[1], value)) {
-							cached_list[cached_index] = data;
-							record_update(item, cache_item, data, ZyiSynchronizerDataField::ACTION_CHANGE, update_key);
-						}
-					}
-				}
-
-				LocalVector<Variant> keys = cached_list_key_visited.get_key_list();
-				for (const String &item_key : keys) {
-					if (cached_list_key_visited[item_key].operator int64_t() == visited_index) {
+						action = ZyiSynchronizerDataField::ACTION_CHANGE;
+					} else {
 						continue;
 					}
-					int64_t index = cached_list_key_to_index[item_key];
-					cache_item.unused_indices.push_back(index);
-					cached_list_key_to_index.erase(item_key);
-					cached_list[index] = Variant();
-					Array arr;
-					arr.resize(2);
-					arr[0] = item_key;
-					arr[1] = Variant();
-					record_update(item, cache_item, arr, ZyiSynchronizerDataField::ACTION_REMOVE, update_key);
+					Array arr = { format_value(value), action };
+					value_key_to_data_dict[value_key] = arr;
+				}
+				if (!map.is_empty()) {
+					map_list[pi] = map;
+				}
+				if (!value_key_to_data_dict.is_empty()) {
+					has_update_data = true;
+					sync_record_list[pi] = value_key_to_data_dict;
 				}
 			}
 		}
-		if (is_unused) {
-			need_remove_index_list.push_back(item_index);
+		if (sync_record_list_ptr == nullptr && has_update_data) {
+			update_key_to_sync_record_list[field_prepare_data.update_key] = sync_record_list;
 		}
 	}
-	if (!_update_data[0].operator Dictionary().is_empty() || !_update_data[1].operator Dictionary().is_empty()) {
-		_normalized_update_data = encode_byte_data(_update_data);
-	} else {
-		_normalized_update_data = PackedByteArray();
-	}
-	if (!need_remove_index_list.is_empty()) {
-		for (int64_t index = need_remove_index_list.size() - 1; index >= 0; index--) {
-			node_list.erase(node_list.begin() + need_remove_index_list[index]);
+	_prev_update_key_to_prepare_data_map = update_key_to_prepare_data_map;
+	{
+		MutexLock l(mutex);
+		if (!_update_data[0].operator Dictionary().is_empty() || !_update_data[1].operator Dictionary().is_empty()) {
+			_shared_normalized_update_data = encode_byte_data(_update_data);
+		} else {
+			_shared_normalized_update_data = PackedByteArray();
 		}
+		_shared_data_prepared = false;
 	}
-	data_prepared = false;
-}
-
-void ZyiMultiplayerSynchronizerStateTask::record_update(const InternalNodeData &p_node_data, const InternalStateCacheItem &p_item, const Variant &p_data, int8_t p_action, const String &p_update_key) {
-	int8_t update_type = p_node_data.meta.get("update_type", UpdateType::UPDATE_NODE);
-	Array data_arr = p_data;
-	if (data_arr[1].get_type() == Variant::NIL) {
-		return;
-	}
-	const String &value_key = data_arr[0];
-	const Variant value = format_value(data_arr[1]);
-	Dictionary update_key_to_sync_record_list = _update_data[update_type];
-	Variant sync_record_list = update_key_to_sync_record_list.get(p_update_key, Variant());
-	if (!sync_record_list.is_array()) {
-		Array arr = Array();
-		arr.resize(p_item.max_index);
-		arr.fill(Variant());
-		sync_record_list = arr;
-		update_key_to_sync_record_list[p_update_key] = sync_record_list;
-	}
-	int64_t item_index = p_item.index;
-	Array sync_record_arr = sync_record_list;
-	Variant value_key_to_records = sync_record_arr[item_index];
-	if (value_key_to_records.get_type() != Variant::DICTIONARY) {
-		value_key_to_records = Dictionary();
-		sync_record_arr[item_index] = value_key_to_records;
-	}
-	Dictionary value_key_to_records_dict = value_key_to_records;
-	Variant value_list = value_key_to_records_dict.get(value_key, Variant());
-	if (!value_list.is_array()) {
-		value_list = Array();
-		value_key_to_records_dict[value_key] = value_list;
-	}
-	Array arr;
-	arr.resize(2);
-	arr[0] = value;
-	arr[1] = p_action;
-	value_list.operator Array().append(arr);
 }
 
 bool ZyiMultiplayerSynchronizerStateTask::add_to_pool(bool high_priority, String description) {
@@ -308,6 +310,12 @@ bool ZyiMultiplayerSynchronizerStateTask::finish_work() {
 	}
 	task_id = INVALID_TASK_ID;
 	return true;
+}
+void ZyiMultiplayerSynchronizerStateTask::clean() {
+	task_id = INVALID_TASK_ID;
+	_shared_normalized_update_data.clear();
+	_id_to_cached_node_data.clear();
+	node_list.clear();
 }
 
 ZyiMultiplayerSynchronizerStateTask::ZyiMultiplayerSynchronizerStateTask() {

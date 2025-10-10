@@ -30,11 +30,9 @@ Variant ZyiSynchronizerNodeField::get_cache_data(Node *p_controller_node) {
 	if (!p_controller_node || !p_controller_node->is_inside_tree()) {
 		return Variant();
 	}
-	Node *node = nullptr;
-	if (node_path.is_absolute()) {
+	Node *node = p_controller_node;
+	if (!node_path.is_empty()) {
 		node = p_controller_node->get_node_or_null(node_path);
-	} else {
-		node = p_controller_node->get_node_or_null(NodePath(String(p_controller_node->get_path()) + "/" + String(node_path)));
 	}
 	return node->get_instance_id();
 }

@@ -3,6 +3,7 @@
 
 #include "core/object/class_db.h"
 #include "core/object/ref_counted.h"
+#include "core/templates/hash_map.h"
 #include "core/templates/local_vector.h"
 #include "core/variant/variant_utility.h"
 #include "sync_helper.h"
@@ -19,6 +20,7 @@ public:
 	static constexpr const int64_t INVALID_TASK_ID = -1;
 	static constexpr const char *METHOD_GET_STATE_SYNC_AUTO_META = "get_state_sync_auto_meta";
 	static constexpr const char *METHOD_IS_STATE_SYNC_VALID = "is_state_sync_valid";
+	static constexpr const char *CACHED_NODE_DATA_KEY = "cached_node_data";
 	enum UpdateType {
 		UPDATE_NODE,
 		UPDATE_PLAYER
@@ -33,18 +35,37 @@ public:
 		Dictionary cached_list_key_to_index;
 		std::vector<int64_t> unused_indices;
 	};
+	struct InternalFieldPrepareDataItem {
+		Callable threading_data_list_normalizer;
+		Array prepare_data;
+	};
+	struct InternalFieldPrepareData {
+		String update_key;
+		int8_t update_type;
+		LocalVector<InternalFieldPrepareDataItem> prepare_data_arr;
+	};
+	struct InternalFieldData {
+		Ref<ZyiSynchronizerDataField> field;
+		Variant cache_data;
+	};
 	struct InternalNodeData {
 		ObjectID node_id;
 		Dictionary meta;
-		std::vector<InternalStateCacheItem> state_cache;
+		LocalVector<InternalFieldData> field_list;
 	};
 
 	int64_t task_id = INVALID_TASK_ID;
 	Mutex mutex;
-	bool data_prepared = false;
+	// 共享的
+	bool _shared_data_prepared = false;
+	LocalVector<InternalFieldPrepareData> _shared_prepare_data_list;
+	PackedByteArray _shared_normalized_update_data;
+	// 不共享的
 	std::vector<InternalNodeData> node_list;
+	HashMap<ObjectID, InternalNodeData> _id_to_cached_node_data;
+
 	TypedArray<Dictionary> _update_data;
-	PackedByteArray _normalized_update_data;
+	HashMap<String, LocalVector<HashMap<String, Variant>>> _prev_update_key_to_prepare_data_map;
 
 	static void rpc_apply_update_data(Node *ref_node, const PackedByteArray &p_update_data_bytes, const Callable &p_node_getter_resolver);
 	_FORCE_INLINE_ static Callable resolve_node_getter(const Callable &p_node_getter_resolver, int64_t p_update_type) {
@@ -99,7 +120,6 @@ public:
 	PackedByteArray resolve_update_data();
 	void prepare_run_data();
 	void run();
-	void record_update(const InternalNodeData &p_node_data, const InternalStateCacheItem &p_item, const Variant &p_data, int8_t p_action, const String &p_update_key);
 
 	bool add_to_pool(bool high_priority = false, String description = "");
 	bool try_finish_in_pool();
@@ -107,6 +127,7 @@ public:
 	bool is_working();
 	bool accept_work(int64_t p_id);
 	bool finish_work();
+	void clean();
 
 	ZyiMultiplayerSynchronizerStateTask();
 };

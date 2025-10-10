@@ -18,6 +18,14 @@ Ref<ZyiUtilAttrManager> ZyiUtilAttrManager::create(const Callable &p_getter, con
 	return result;
 }
 
+HashSet<StringName> ZyiUtilAttrManager::get_cached_new_attr_set() {
+	return cached_new_attr_set;
+}
+
+void ZyiUtilAttrManager::clear_cached_new_attr() {
+	cached_new_attr_set.clear();
+}
+
 Array ZyiUtilAttrManager::get_attr_list() const {
 	Array result;
 	if (attr_map.is_empty()) {
@@ -90,6 +98,7 @@ void ZyiUtilAttrManager::add_attr(const String &p_key, bool override, const Vari
 	if (!override && attr_map.has(p_key)) {
 		return;
 	}
+	cached_new_attr_set.insert(p_key);
 	attr_map[p_key] = AttrConfig{ p_getter, p_setter };
 }
 
