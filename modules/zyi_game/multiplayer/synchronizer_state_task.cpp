@@ -315,7 +315,6 @@ void ZyiMultiplayerSynchronizerStateTask::clean() {
 	task_id = INVALID_TASK_ID;
 	_shared_normalized_update_data.clear();
 	_id_to_cached_node_data.clear();
-	node_list.clear();
 }
 
 ZyiMultiplayerSynchronizerStateTask::ZyiMultiplayerSynchronizerStateTask() {
