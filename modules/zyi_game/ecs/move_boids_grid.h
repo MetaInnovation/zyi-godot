@@ -31,7 +31,7 @@ public:
 	// 网格中物体数量映射大小
 	uint64_t boid_cell_count;
 	// 物体位置映射
-	HashMap<ObjectID, uint64_t> boid_object_pos_map;
+	HashMap<ObjectID, int64_t *> boid_object_pos_list_map;
 
 	static Ref<ZyiMoveBoidsGrid> create(const TypedArray<Rect2i> &p_grid_space_list, const Size2i &p_grid_cell_size);
 	void init(const TypedArray<Rect2i> &p_grid_space_list, const Size2i &p_grid_cell_size);
@@ -77,6 +77,12 @@ public:
 			start_index += space_coord_size.x * space_coord_size.y;
 		}
 		return start_index + p_coord.x + p_coord.y * space_coord_size.x;
+	}
+	_ALWAYS_INLINE_ void clear_boid_object_pos_list_map() {
+		for (KeyValue<ObjectID, int64_t *> &item : boid_object_pos_list_map) {
+			memfree(item.value);
+		}
+		boid_object_pos_list_map.clear();
 	}
 
 	~ZyiMoveBoidsGrid();

@@ -8,6 +8,7 @@
 #include "core/variant/variant_utility.h"
 #include "sync_helper.h"
 #include "synchronizer_data_field.h"
+#include <queue>
 #include <vector>
 
 class ZyiMultiplayerSynchronizerStateTask : public RefCounted {
@@ -44,9 +45,16 @@ public:
 		int8_t update_type;
 		LocalVector<InternalFieldPrepareDataItem> prepare_data_arr;
 	};
+	struct InternalFieldChangeData {
+		bool has_changed = false;
+		uint64_t value_ticks_usec = 0;
+		float value = 0.0;
+		float change_rate_per_sec = 0.0;
+	};
 	struct InternalFieldData {
 		Ref<ZyiSynchronizerDataField> field;
 		Variant cache_data;
+		HashMap<String, InternalFieldChangeData> update_key_to_just_changed_float_value_map;
 	};
 	struct InternalNodeData {
 		ObjectID node_id;
@@ -67,7 +75,10 @@ public:
 	TypedArray<Dictionary> _update_data;
 	HashMap<String, LocalVector<HashMap<String, Variant>>> _prev_update_key_to_prepare_data_map;
 
-	static void rpc_apply_update_data(Node *ref_node, const PackedByteArray &p_update_data_bytes, const Callable &p_node_getter_resolver);
+	HashMap<ObjectID, InternalNodeData> _receiver_id_to_cached_node_data;
+	Array _prev_received_update_data;
+	std::queue<PackedByteArray> _received_update_data_queue;
+
 	_FORCE_INLINE_ static Callable resolve_node_getter(const Callable &p_node_getter_resolver, int64_t p_update_type) {
 		Variant ret;
 		Callable::CallError ce;
@@ -112,14 +123,14 @@ public:
 	_FORCE_INLINE_ static Variant parse_value(const Variant &p_value) {
 		return ZyiSyncHelper::parse_variant(p_value);
 	}
-	_FORCE_INLINE_ void clean_node_list() {
-		//
-	}
-	_FORCE_INLINE_ void update_data_prepared(bool p_value);
 	void add_node(Node *node, Dictionary meta);
 	PackedByteArray resolve_update_data();
 	void prepare_run_data();
 	void run();
+
+	void receive_update_data_queue(const TypedArray<PackedByteArray> &p_queue);
+	void consume_interpolate_update_data(float delta, Node *ref_node, const Callable &p_node_getter_resolver);
+	void consume_next_update_data(Node *ref_node, const Callable &p_node_getter_resolver);
 
 	bool add_to_pool(bool high_priority = false, String description = "");
 	bool try_finish_in_pool();
@@ -127,7 +138,7 @@ public:
 	bool is_working();
 	bool accept_work(int64_t p_id);
 	bool finish_work();
-	void clean();
+	void clean(bool force = false);
 
 	ZyiMultiplayerSynchronizerStateTask();
 };

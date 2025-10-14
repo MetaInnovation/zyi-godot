@@ -48,6 +48,9 @@ Variant ZyiSynchronizerCharacterStateField::get_prepare_data(Node *p_controller_
 		_cache_attr_configs.resize(attr_manager->attr_map.size());
 		size_t index = 0;
 		for (const KeyValue<StringName, ZyiUtilAttrManager::AttrConfig> &item : attr_manager->attr_map) {
+			if (attr_manager->force_exclude_attr_set.has(item.key)) {
+				continue;
+			}
 			const ZyiUtilAttrManager::AttrConfig &item_cfg = item.value;
 			Array args = { item_cfg.getter, item_cfg.setter };
 			_cache_attr_configs[index] = { item.key, p_controller_node->callv(METHOD_FORMAT_ATTR_HANDLERS, args), item_cfg.getter };
@@ -60,6 +63,9 @@ Variant ZyiSynchronizerCharacterStateField::get_prepare_data(Node *p_controller_
 		size_t index = _cache_attr_configs.size();
 		_cache_attr_configs.resize(index + cached_new_attr_set.size());
 		for (const StringName &item : cached_new_attr_set) {
+			if (attr_manager->force_exclude_attr_set.has(item)) {
+				continue;
+			}
 			const ZyiUtilAttrManager::AttrConfig &item_cfg = attr_manager->attr_map[item];
 			Array args = { item_cfg.getter, item_cfg.setter };
 			_cache_attr_configs[index] = { item, p_controller_node->callv(METHOD_FORMAT_ATTR_HANDLERS, args), item_cfg.getter };

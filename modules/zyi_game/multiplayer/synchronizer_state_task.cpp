@@ -1,7 +1,9 @@
 #include "synchronizer_state_task.h"
 
 void ZyiMultiplayerSynchronizerStateTask::_bind_methods() {
-	ClassDB::bind_static_method("ZyiMultiplayerSynchronizerStateTask", D_METHOD("rpc_apply_update_data", "ref_node", "update_data_bytes", "node_getter_resolver"), &ZyiMultiplayerSynchronizerStateTask::rpc_apply_update_data);
+	ClassDB::bind_method(D_METHOD("receive_update_data_queue", "queue"), &ZyiMultiplayerSynchronizerStateTask::receive_update_data_queue);
+	ClassDB::bind_method(D_METHOD("consume_interpolate_update_data", "delta", "ref_node", "node_getter_resolver"), &ZyiMultiplayerSynchronizerStateTask::consume_interpolate_update_data);
+	ClassDB::bind_method(D_METHOD("consume_next_update_data", "ref_node", "node_getter_resolver"), &ZyiMultiplayerSynchronizerStateTask::consume_next_update_data);
 	ClassDB::bind_method(D_METHOD("add_node", "node", "meta"), &ZyiMultiplayerSynchronizerStateTask::add_node);
 	ClassDB::bind_method(D_METHOD("resolve_update_data"), &ZyiMultiplayerSynchronizerStateTask::resolve_update_data);
 	ClassDB::bind_method(D_METHOD("prepare_run_data"), &ZyiMultiplayerSynchronizerStateTask::prepare_run_data);
@@ -12,55 +14,10 @@ void ZyiMultiplayerSynchronizerStateTask::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_working"), &ZyiMultiplayerSynchronizerStateTask::is_working);
 	ClassDB::bind_method(D_METHOD("accept_work", "task_id"), &ZyiMultiplayerSynchronizerStateTask::accept_work);
 	ClassDB::bind_method(D_METHOD("finish_work"), &ZyiMultiplayerSynchronizerStateTask::finish_work);
-	ClassDB::bind_method(D_METHOD("clean"), &ZyiMultiplayerSynchronizerStateTask::clean);
+	ClassDB::bind_method(D_METHOD("clean", "force"), &ZyiMultiplayerSynchronizerStateTask::clean, DEFVAL(false));
 
 	BIND_CONSTANT(UPDATE_NODE);
 	BIND_CONSTANT(UPDATE_PLAYER);
-}
-
-void ZyiMultiplayerSynchronizerStateTask::rpc_apply_update_data(Node *ref_node, const PackedByteArray &p_update_data_bytes, const Callable &p_node_getter_resolver) {
-	Array remote_update_data = decode_byte_data(p_update_data_bytes);
-	for (int64_t update_type = 0; update_type < remote_update_data.size(); update_type++) {
-		Dictionary update_key_to_sync_record_list = remote_update_data[update_type];
-		if (update_key_to_sync_record_list.is_empty()) {
-			continue;
-		}
-		Callable node_getter = resolve_node_getter(p_node_getter_resolver, update_type);
-		for (const String &update_key : update_key_to_sync_record_list.keys()) {
-			Node *node = resolve_node(node_getter, update_key);
-			if (node == nullptr || node->is_queued_for_deletion()) {
-				continue;
-			}
-			Variant meta_val = node->callv(METHOD_GET_STATE_SYNC_AUTO_META, Array());
-			if (meta_val.get_type() != Variant::DICTIONARY) {
-				continue;
-			}
-			Dictionary meta = meta_val;
-			Array sync_list = meta["sync_list"];
-			if (sync_list.is_empty()) {
-				continue;
-			}
-			Array sync_record_list = update_key_to_sync_record_list[update_key];
-			for (int64_t item_index = 0; item_index < sync_record_list.size(); item_index++) {
-				Variant value_key_to_data_val = sync_record_list[item_index];
-				if (value_key_to_data_val.get_type() != Variant::DICTIONARY) {
-					continue;
-				}
-				Ref<ZyiSynchronizerDataField> field = Object::cast_to<ZyiSynchronizerDataField>(sync_list[item_index]);
-				Variant prepare_data = field->get_prepare_data(node, field->get_cache_data(node), true);
-				if (is_invalid_prepare_data(prepare_data)) {
-					continue;
-				}
-				Dictionary value_key_to_data = value_key_to_data_val;
-				for (const String &value_key : value_key_to_data.keys()) {
-					Array item = value_key_to_data[value_key];
-					Variant value = parse_value(item[0]);
-					int8_t action = item[1];
-					field->update_data(node, prepare_data, value_key, value, action);
-				}
-			}
-		}
-	}
 }
 
 void ZyiMultiplayerSynchronizerStateTask::add_node(Node *node, Dictionary meta) {
@@ -187,6 +144,8 @@ void ZyiMultiplayerSynchronizerStateTask::run() {
 		if (prev_prepare_data_map_list == nullptr) {
 			// 所有都是新增
 			for (size_t pi = 0; pi < pn; pi++) {
+				map_list[pi] = HashMap<String, Variant>();
+				HashMap<String, Variant> &map = map_list[pi];
 				const InternalFieldPrepareDataItem &field_prepare_data_item = field_prepare_data.prepare_data_arr[pi];
 				Array prepare_data = field_prepare_data_item.prepare_data;
 				if (field_prepare_data_item.threading_data_list_normalizer.is_valid()) {
@@ -196,7 +155,6 @@ void ZyiMultiplayerSynchronizerStateTask::run() {
 					continue;
 				}
 				Dictionary value_key_to_data_dict;
-				HashMap<String, Variant> map;
 				for (const Array &data_item : prepare_data) {
 					const Variant &value = data_item[1];
 					if (value.get_type() == Variant::NIL) {
@@ -207,9 +165,6 @@ void ZyiMultiplayerSynchronizerStateTask::run() {
 					value_key_to_data_dict[value_key] = arr;
 					map[value_key] = value;
 				}
-				if (!map.is_empty()) {
-					map_list[pi] = map;
-				}
 				if (!value_key_to_data_dict.is_empty()) {
 					has_update_data = true;
 					sync_record_list[pi] = value_key_to_data_dict;
@@ -218,6 +173,8 @@ void ZyiMultiplayerSynchronizerStateTask::run() {
 		} else {
 			// 需要 diff
 			for (size_t pi = 0; pi < pn; pi++) {
+				map_list[pi] = HashMap<String, Variant>();
+				HashMap<String, Variant> &map = map_list[pi];
 				const InternalFieldPrepareDataItem &field_prepare_data_item = field_prepare_data.prepare_data_arr[pi];
 				Array prepare_data = field_prepare_data_item.prepare_data;
 				if (field_prepare_data_item.threading_data_list_normalizer.is_valid()) {
@@ -227,7 +184,6 @@ void ZyiMultiplayerSynchronizerStateTask::run() {
 					continue;
 				}
 				Dictionary value_key_to_data_dict;
-				HashMap<String, Variant> map;
 				const HashMap<String, Variant> &prev_map = prev_prepare_data_map_list->operator[](pi);
 				for (const Array &data_item : prepare_data) {
 					const Variant &value = data_item[1];
@@ -250,9 +206,6 @@ void ZyiMultiplayerSynchronizerStateTask::run() {
 					Array arr = { format_value(value), action };
 					value_key_to_data_dict[value_key] = arr;
 				}
-				if (!map.is_empty()) {
-					map_list[pi] = map;
-				}
 				if (!value_key_to_data_dict.is_empty()) {
 					has_update_data = true;
 					sync_record_list[pi] = value_key_to_data_dict;
@@ -272,6 +225,75 @@ void ZyiMultiplayerSynchronizerStateTask::run() {
 			_shared_normalized_update_data = PackedByteArray();
 		}
 		_shared_data_prepared = false;
+	}
+}
+
+void ZyiMultiplayerSynchronizerStateTask::receive_update_data_queue(const TypedArray<PackedByteArray> &p_queue) {
+	for (const PackedByteArray &item : p_queue) {
+		_received_update_data_queue.push(item);
+	}
+}
+
+void ZyiMultiplayerSynchronizerStateTask::consume_interpolate_update_data(float delta, Node *ref_node, const Callable &p_node_getter_resolver) {
+	// update_key_to_just_changed_float_value_map
+}
+
+void ZyiMultiplayerSynchronizerStateTask::consume_next_update_data(Node *ref_node, const Callable &p_node_getter_resolver) {
+	if (_received_update_data_queue.empty()) {
+		return;
+	}
+	const PackedByteArray &raw_received_update_data = _received_update_data_queue.front();
+	_prev_received_update_data = decode_byte_data(raw_received_update_data);
+	_received_update_data_queue.pop();
+	if (_prev_received_update_data.is_empty()) {
+		return;
+	}
+	uint64_t ticks_usec = OS::get_singleton()->get_ticks_usec();
+	for (int64_t update_type = 0; update_type < _prev_received_update_data.size(); update_type++) {
+		Dictionary update_key_to_sync_record_list = _prev_received_update_data[update_type];
+		if (update_key_to_sync_record_list.is_empty()) {
+			continue;
+		}
+		Callable node_getter = resolve_node_getter(p_node_getter_resolver, update_type);
+		for (const String &update_key : update_key_to_sync_record_list.keys()) {
+			Node *node = resolve_node(node_getter, update_key);
+			if (node == nullptr || node->is_queued_for_deletion()) {
+				continue;
+			}
+			ObjectID node_id = node->get_instance_id();
+			InternalNodeData *node_data = _receiver_id_to_cached_node_data.getptr(node_id);
+			if (node_data == nullptr) {
+				// 记录 node_data 并缓存
+				node_data = &(_receiver_id_to_cached_node_data[node_id] = InternalNodeData{ node_id, node->callv(METHOD_GET_STATE_SYNC_AUTO_META, Array()) });
+				Array sync_list = node_data->meta["sync_list"];
+				size_t num = sync_list.size();
+				node_data->field_list.resize(num);
+				for (size_t i = 0; i < num; i++) {
+					InternalFieldData &field_data = (node_data->field_list[i] = InternalFieldData{ Object::cast_to<ZyiSynchronizerDataField>(sync_list[i]) });
+					field_data.cache_data = field_data.field->get_cache_data(node);
+				}
+			}
+			Array sync_record_list = update_key_to_sync_record_list[update_key];
+			for (int64_t item_index = 0; item_index < sync_record_list.size(); item_index++) {
+				Variant value_key_to_data_val = sync_record_list[item_index];
+				if (value_key_to_data_val.get_type() != Variant::DICTIONARY) {
+					continue;
+				}
+				InternalFieldData &field_data = node_data->field_list[item_index];
+				const Ref<ZyiSynchronizerDataField> &field = field_data.field;
+				Variant prepare_data = field->get_prepare_data(node, field_data.cache_data, true);
+				if (is_invalid_prepare_data(prepare_data)) {
+					continue;
+				}
+				Dictionary value_key_to_data = value_key_to_data_val;
+				for (const String &value_key : value_key_to_data.keys()) {
+					Array item = value_key_to_data[value_key];
+					Variant value = parse_value(item[0]);
+					int8_t action = item[1];
+					field->update_data(node, prepare_data, value_key, value, action);
+				}
+			}
+		}
 	}
 }
 
@@ -311,10 +333,23 @@ bool ZyiMultiplayerSynchronizerStateTask::finish_work() {
 	task_id = INVALID_TASK_ID;
 	return true;
 }
-void ZyiMultiplayerSynchronizerStateTask::clean() {
+
+void ZyiMultiplayerSynchronizerStateTask::clean(bool force) {
 	task_id = INVALID_TASK_ID;
 	_shared_normalized_update_data.clear();
 	_id_to_cached_node_data.clear();
+	_receiver_id_to_cached_node_data.clear();
+	if (force) {
+		_shared_prepare_data_list.clear();
+		_shared_normalized_update_data.clear();
+		node_list.clear();
+		_update_data.resize(2);
+		_update_data[0] = Dictionary();
+		_update_data[1] = Dictionary();
+		_prev_update_key_to_prepare_data_map.clear();
+		_receiver_id_to_cached_node_data.clear();
+		_received_update_data_queue = std::queue<PackedByteArray>();
+	}
 }
 
 ZyiMultiplayerSynchronizerStateTask::ZyiMultiplayerSynchronizerStateTask() {

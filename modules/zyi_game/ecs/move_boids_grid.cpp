@@ -48,7 +48,7 @@ void ZyiMoveBoidsGrid::update_space_list(const TypedArray<Rect2i> &p_grid_space_
 		clear();
 		init(p_grid_space_list, grid_cell_size);
 	} else {
-		boid_object_pos_map.clear();
+		clear_boid_object_pos_list_map();
 		uint64_t cell_count = 0;
 		for (int i = 0; i < grid_space_count; i++) {
 			Rect2i rect = normalize_space(p_grid_space_list[i], grid_cell_size);
@@ -78,50 +78,61 @@ void ZyiMoveBoidsGrid::clear() {
 		memfree(boid_grid);
 		boid_grid = nullptr;
 	}
-	boid_object_pos_map.clear();
+	clear_boid_object_pos_list_map();
 }
 
 void ZyiMoveBoidsGrid::update_object_leave(ObjectID p_object_id) {
 	if (p_object_id.is_null()) {
 		return;
 	}
-	if (!boid_object_pos_map.has(p_object_id)) {
+	if (!boid_object_pos_list_map.has(p_object_id)) {
 		return;
 	}
-	int64_t grid_index = boid_object_pos_map.get(p_object_id);
-	if (grid_index >= 0 && boid_grid[grid_index] > 0) {
-		// 移除
-		boid_grid[grid_index]--;
+	int64_t *grid_index_list = boid_object_pos_list_map.get(p_object_id);
+	for (int i = 0; i < grid_space_count; i++) {
+		int64_t grid_index = grid_index_list[i];
+		if (grid_index >= 0 && boid_grid[grid_index] > 0) {
+			// 移除
+			boid_grid[grid_index]--;
+		}
 	}
-	boid_object_pos_map.erase(p_object_id);
+	memfree(grid_index_list);
+	boid_object_pos_list_map.erase(p_object_id);
 }
 
 void ZyiMoveBoidsGrid::update_object_map(ObjectID p_object_id, const Vector2 &p_pos) {
 	if (p_object_id.is_null()) {
 		return;
 	}
-	uint64_t *origin_grid_index_ptr = boid_object_pos_map.getptr(p_object_id);
-	if (origin_grid_index_ptr != nullptr) {
-		// 移除
-		boid_grid[*origin_grid_index_ptr]--;
-		boid_object_pos_map.erase(p_object_id);
+	int64_t **grid_index_list_ptr = boid_object_pos_list_map.getptr(p_object_id);
+	bool need_free_unused = false;
+	if (grid_index_list_ptr != nullptr) {
+		for (int i = 0; i < grid_space_count; i++) {
+			int64_t grid_index = (*grid_index_list_ptr)[i];
+			if (grid_index >= 0) {
+				// 移除
+				boid_grid[grid_index]--;
+			}
+		}
+		need_free_unused = true;
 	}
-	int64_t min_dist = INT64_MAX;
-	int64_t min_dist_grid_index = -1;
+	bool unused = true;
 	for (int i = 0; i < grid_space_count; i++) {
 		int64_t grid_index = get_grid_index(i, p_pos);
 		if (grid_index >= 0) {
-			Rect2i grid_space = grid_space_list[i];
-			int64_t dist = p_pos.distance_squared_to(grid_space.position + grid_space.size / 2);
-			if (dist < min_dist) {
-				min_dist_grid_index = grid_index;
+			if (grid_index_list_ptr == nullptr) {
+				// 添加
+				grid_index_list_ptr = &(boid_object_pos_list_map[p_object_id] = (int64_t *)memalloc(sizeof(int64_t) * grid_space_count));
+				memset(*grid_index_list_ptr, -1, sizeof(int64_t) * grid_space_count);
 			}
+			(*grid_index_list_ptr)[i] = grid_index;
+			boid_grid[grid_index]++;
+			unused = false;
 		}
 	}
-	if (min_dist_grid_index != -1) {
-		// 添加
-		boid_grid[min_dist_grid_index]++;
-		boid_object_pos_map[p_object_id] = min_dist_grid_index;
+	if (need_free_unused && unused) {
+		memfree(*grid_index_list_ptr);
+		boid_object_pos_list_map.erase(p_object_id);
 	}
 }
 
