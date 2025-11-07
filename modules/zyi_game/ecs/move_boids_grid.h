@@ -41,6 +41,8 @@ public:
 	void update_object_map(ObjectID p_object_id, const Vector2 &p_pos);
 	// 计算排斥力
 	Vector2 get_repulsive_force(ObjectID p_object_id, const Vector2 &p_pos) const;
+	// 计算包围力
+	Vector2 get_surround_force(ObjectID p_object_id, const Vector2 &p_pos, const Vector2 &p_surround_pos, float min_d = 100.0, float max_dw = 100.0) const;
 
 	_ALWAYS_INLINE_ Vector2i get_grid_coord(uint8_t p_space_index, const Vector2i &p_pos) const {
 		Rect2i grid_space = grid_space_list[p_space_index];
@@ -77,6 +79,14 @@ public:
 			start_index += space_coord_size.x * space_coord_size.y;
 		}
 		return start_index + p_coord.x + p_coord.y * space_coord_size.x;
+	}
+	_ALWAYS_INLINE_ Vector2 get_grid_center_pos_by_coord(uint8_t p_space_index, const Vector2i &p_coord) const {
+		Rect2i grid_space = grid_space_list[p_space_index];
+		Size2i space_coord_size = get_space_coord_size(grid_space);
+		if (!is_grid_coord_valid(space_coord_size, p_coord)) {
+			return Vector2();
+		}
+		return grid_space.position + Vector2(p_coord.x * grid_cell_size.x + grid_cell_size.x / 2, p_coord.y * grid_cell_size.y + grid_cell_size.y / 2);
 	}
 	_ALWAYS_INLINE_ void clear_boid_object_pos_list_map() {
 		for (KeyValue<ObjectID, int64_t *> &item : boid_object_pos_list_map) {

@@ -230,10 +230,15 @@ void ZyiMoveSystem::idle_physics_process_update(double p_delta) {
 		// 计算boid排斥力
 		if (boids_grid.is_valid()) {
 			Vector2 force = Vector2(0, 0);
+			Vector2 surround_force = Vector2(0, 0);
 			if (component.is_forced_in_boid_grid()) {
 				force = boids_grid->get_repulsive_force(node->get_instance_id(), self_pos);
+				if (component.is_surround_follow_in_boid_grid()) {
+					surround_force = boids_grid->get_surround_force(node->get_instance_id(), self_pos, component.last_follow_pos);
+				}
 			}
-			component.idle_update_extra_force(force, p_delta);
+			component.idle_update_boids_repulsive_force(force, p_delta);
+			component.idle_update_boids_surround_force(surround_force, p_delta);
 		}
 		// 移动预测：如果移动后相当于远离，且方向夹角小于 90 度 距离也小于速度，则强制更新 global_position
 		if (follow_dist_squared > 0.0 && !!component.follow_target) {
@@ -300,10 +305,15 @@ void ZyiMoveSystem::idle_physics_process_update(double p_delta) {
 		// 计算boid排斥力
 		if (boids_grid.is_valid()) {
 			Vector2 force = Vector2(0, 0);
+			Vector2 surround_force = Vector2(0, 0);
 			if (component.is_forced_in_boid_grid()) {
 				force = boids_grid->get_repulsive_force(character_body->get_instance_id(), self_pos);
+				if (component.is_surround_follow_in_boid_grid()) {
+					surround_force = boids_grid->get_surround_force(character_body->get_instance_id(), self_pos, component.last_follow_pos);
+				}
 			}
-			component.idle_update_extra_force(force, p_delta);
+			component.idle_update_boids_repulsive_force(force, p_delta);
+			component.idle_update_boids_surround_force(surround_force, p_delta);
 		}
 		// 击退
 		Vector2 knockback_direction = component.cur_knockback_velocity.normalized();

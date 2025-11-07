@@ -46,6 +46,7 @@ public:
 	void add_flags(BitField<ZyiMoveConstant::Flags> p_flags);
 	void remove_flags(BitField<ZyiMoveConstant::Flags> p_flags);
 	BitField<ZyiMoveConstant::Flags> get_flags();
+	void clean_boids_force();
 	void update_extra_force(const Vector2 &p_force);
 	bool check_can_knockback() const;
 	void update_knockback_enabled(bool p_value);
@@ -75,7 +76,8 @@ public:
 	void stop_move_knockback();
 	void stop_move();
 	bool start_move_towards_point(const Vector2 &p_pos);
-	void start_move_towards_direction(const Vector2 &p_direction);
+	bool start_move_towards_follow_point(const Vector2 &p_pos);
+	void start_move_towards_direction(const Vector2 &p_direction, bool p_follow = false, const Vector2 &follow_pos = Vector2());
 	~ZyiMoveComponentProxy();
 };
 

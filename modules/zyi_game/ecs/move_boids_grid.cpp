@@ -185,6 +185,76 @@ Vector2 ZyiMoveBoidsGrid::get_repulsive_force(ObjectID p_object_id, const Vector
 	return result;
 }
 
+Vector2 ZyiMoveBoidsGrid::get_surround_force(ObjectID p_object_id, const Vector2 &p_pos, const Vector2 &p_surround_pos, float min_d, float max_dw) const {
+	Vector2 result = Vector2(0, 0);
+	if (p_object_id.is_null()) {
+		return result;
+	}
+	Vector2 dv = p_pos - p_surround_pos;
+	float min_length = 0.1f;
+	float dvl = dv.length();
+	if (dvl < min_length) {
+		return result;
+	}
+	// 确定要使用的网格空间
+	Vector2i coord;
+	int16_t space_index = -1;
+	Rect2i grid_space;
+	Size2i space_coord_size;
+	for (int i = 0; i < grid_space_count; i++) {
+		coord = get_grid_coord(i, p_pos);
+		grid_space = grid_space_list[i];
+		space_coord_size = get_space_coord_size(grid_space);
+		if (is_grid_coord_valid(space_coord_size, coord)) {
+			space_index = i;
+			break;
+		}
+	}
+	if (space_index < 0) {
+		return result;
+	}
+	// 计算力
+	int32_t w = space_coord_size.x;
+	int32_t h = space_coord_size.y;
+	// 顺时针切向
+	dv = dv / dvl;
+	// 目标转向力 rv
+	Vector2 rv = dv.orthogonal();
+	float ge = 0.0f;
+	// 9 宫格，计算 8 个方位的邻居
+	for (int dy = -1; dy <= 1; dy++) {
+		for (int dx = -1; dx <= 1; dx++) {
+			Vector2i neighbor_coord = coord + Vector2i(dx, dy);
+			if (neighbor_coord.x < 0 || neighbor_coord.x >= w || neighbor_coord.y < 0 || neighbor_coord.y >= h) {
+				// 跳过边界
+				continue;
+			}
+			int64_t neighbor_grid_index = get_grid_index_by_coord(space_index, neighbor_coord);
+			Vector2 neighbor_pos = get_grid_center_pos_by_coord(space_index, neighbor_coord);
+			uint16_t boid_count = boid_grid[neighbor_grid_index];
+			if (boid_count <= 0) {
+				continue;
+			}
+			Vector2 nv = neighbor_pos - p_surround_pos;
+			float nvl = nv.length();
+			if (nvl < min_length) {
+				continue;
+			}
+			// 基于对目标转向力 rv 的投影（dot）大小记录影响力；同时基于 nvl 大于 dvl 的程度对影响力度进行削弱
+			ge += boid_count * (nv / nvl).dot(rv) * VariantUtilityFunctions::clampf(1.0 - Math::abs(nvl - dvl), 0.0, 1.0);
+		}
+	}
+	// ge > 0 表示，rv方向上的邻居密度更大，应该取 -rv；反之亦然。tanh 将 ge 映射到 -1 到 1 之间
+	float dw = dvl - min_d;
+	if (dw < min_length) {
+		dw = max_dw;
+	} else {
+		dw = VariantUtilityFunctions::clampf(1.0 / (dw * dw), 1.0, max_dw);
+	}
+	result = -Math::tanh(ge) * dw * rv;
+	return result;
+}
+
 ZyiMoveBoidsGrid::~ZyiMoveBoidsGrid() {
 	clear();
 }

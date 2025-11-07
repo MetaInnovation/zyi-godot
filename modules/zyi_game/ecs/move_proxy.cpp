@@ -13,6 +13,7 @@ void ZyiMoveComponentProxy::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("add_flags", "flags"), &ZyiMoveComponentProxy::add_flags);
 	ClassDB::bind_method(D_METHOD("remove_flags", "flags"), &ZyiMoveComponentProxy::remove_flags);
 	ClassDB::bind_method(D_METHOD("get_flags"), &ZyiMoveComponentProxy::get_flags);
+	ClassDB::bind_method(D_METHOD("clean_boids_force"), &ZyiMoveComponentProxy::clean_boids_force);
 	ClassDB::bind_method(D_METHOD("update_extra_force", "force"), &ZyiMoveComponentProxy::update_extra_force);
 	ClassDB::bind_method(D_METHOD("check_can_knockback"), &ZyiMoveComponentProxy::check_can_knockback);
 	ClassDB::bind_method(D_METHOD("update_knockback_enabled", "value"), &ZyiMoveComponentProxy::update_knockback_enabled);
@@ -39,7 +40,8 @@ void ZyiMoveComponentProxy::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("stop_move_knockback"), &ZyiMoveComponentProxy::stop_move_knockback);
 	ClassDB::bind_method(D_METHOD("stop_move"), &ZyiMoveComponentProxy::stop_move);
 	ClassDB::bind_method(D_METHOD("start_move_towards_point", "pos"), &ZyiMoveComponentProxy::start_move_towards_point);
-	ClassDB::bind_method(D_METHOD("start_move_towards_direction", "direction"), &ZyiMoveComponentProxy::start_move_towards_direction);
+	ClassDB::bind_method(D_METHOD("start_move_towards_follow_point", "pos"), &ZyiMoveComponentProxy::start_move_towards_follow_point);
+	ClassDB::bind_method(D_METHOD("start_move_towards_direction", "direction", "follow", "follow_pos"), &ZyiMoveComponentProxy::start_move_towards_direction, DEFVAL(false), DEFVAL(Vector2()));
 
 	ADD_SIGNAL(MethodInfo(SNAME("moving_changed"), PropertyInfo(Variant::BOOL, "moving")));
 	ADD_SIGNAL(MethodInfo(SNAME("follow_force_stop")));
@@ -338,8 +340,28 @@ BitField<ZyiMoveConstant::Flags> ZyiMoveComponentProxy::get_flags() {
 	return result;
 }
 
+void ZyiMoveComponentProxy::clean_boids_force() {
+	switch (node_type) {
+		case MOVE_NODE_TYPE_NORMAL: {
+			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
+			if (ptr) {
+				ptr->set_boids_repulsive_force(Vector2());
+				ptr->set_boids_surround_force(Vector2());
+			}
+		} break;
+		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
+			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
+			if (ptr) {
+				ptr->set_boids_repulsive_force(Vector2());
+				ptr->set_boids_surround_force(Vector2());
+			}
+		} break;
+		default:
+			break;
+	}
+}
+
 void ZyiMoveComponentProxy::update_extra_force(const Vector2 &p_force) {
-	BitField<ZyiMoveConstant::Flags> result;
 	switch (node_type) {
 		case MOVE_NODE_TYPE_NORMAL: {
 			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
@@ -804,8 +826,20 @@ bool ZyiMoveComponentProxy::start_move_towards_point(const Vector2 &p_pos) {
 		return false;
 	}
 }
+bool ZyiMoveComponentProxy::start_move_towards_follow_point(const Vector2 &p_pos) {
+	if (node && !node->is_queued_for_deletion() && node->is_visible_in_tree()) {
+		Vector2 pos = node->get_global_position();
+		if (pos.is_equal_approx(p_pos)) {
+			return false;
+		}
+		start_move_towards_direction(pos.direction_to(p_pos), true, p_pos);
+		return true;
+	} else {
+		return false;
+	}
+}
 
-void ZyiMoveComponentProxy::start_move_towards_direction(const Vector2 &p_direction) {
+void ZyiMoveComponentProxy::start_move_towards_direction(const Vector2 &p_direction, bool p_follow, const Vector2 &follow_pos) {
 	if (p_direction.is_zero_approx()) {
 		stop_move();
 		return;
@@ -814,6 +848,10 @@ void ZyiMoveComponentProxy::start_move_towards_direction(const Vector2 &p_direct
 		case MOVE_NODE_TYPE_NORMAL: {
 			ZyiNormalMoveComponent *ptr = get_normal_move_component_ptr();
 			if (ptr) {
+				if (p_follow) {
+					ptr->last_follow_valid = true;
+					ptr->last_follow_pos = follow_pos;
+				}
 				if (ptr->moving) {
 					if (!direction_locked) {
 						ptr->set_cur_velocity(p_direction * ptr->cur_velocity.length());
@@ -829,6 +867,10 @@ void ZyiMoveComponentProxy::start_move_towards_direction(const Vector2 &p_direct
 		case MOVE_NODE_TYPE_CHARACTER_BODY_2D: {
 			ZyiCharacterMoveComponent *ptr = get_character_move_component_ptr();
 			if (ptr) {
+				if (p_follow) {
+					ptr->last_follow_valid = true;
+					ptr->last_follow_pos = follow_pos;
+				}
 				if (ptr->moving) {
 					if (!direction_locked) {
 						ptr->set_cur_velocity(p_direction * ptr->cur_velocity.length());

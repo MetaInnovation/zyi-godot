@@ -24,6 +24,10 @@ struct ZyiMoveBasicComponent {
 	int32_t flags = ZyiMoveConstant::MOVE_FLAG_NORMAL;
 	// 当前移动速度
 	Vector2 cur_velocity;
+	// boids 排斥力
+	Vector2 boids_repulsive_force;
+	// boids 包围力
+	Vector2 boids_surround_force;
 	// 外部力
 	Vector2 extra_force;
 	// 跟随的物体，如果没有，则按照指定方向移动
@@ -52,6 +56,9 @@ struct ZyiMoveBasicComponent {
 	_ALWAYS_INLINE_ bool is_forced_in_boid_grid() {
 		return (flags & ZyiMoveConstant::MOVE_FLAG_BOID_GRID_CHILD) && !(flags & ZyiMoveConstant::MOVE_FLAG_UNFORCED);
 	}
+	_ALWAYS_INLINE_ bool is_surround_follow_in_boid_grid() {
+		return (flags & ZyiMoveConstant::MOVE_FLAG_BOIDS_GRID_SURROUND_FOLLOW);
+	}
 	_ALWAYS_INLINE_ bool is_proxy_by_manual() {
 		return flags & ZyiMoveConstant::MOVE_FLAG_PROXY_BY_MANUAL;
 	}
@@ -63,6 +70,8 @@ struct ZyiMoveBasicComponent {
 		move_disabled = false;
 		velocity_scale_add_rate = 0.0;
 		flags = ZyiMoveConstant::MOVE_FLAG_NORMAL;
+		boids_repulsive_force = Vector2(0, 0);
+		boids_surround_force = Vector2(0, 0);
 		extra_force = Vector2(0, 0);
 		moving_changed_callback = Callable();
 		moved_callback = Callable();
@@ -91,11 +100,20 @@ struct ZyiMoveBasicComponent {
 			moving_changed_callback.call_deferred(moving && !freezed);
 		}
 	}
+	_ALWAYS_INLINE_ void idle_update_boids_repulsive_force(const Vector2 &p_value, double p_delta) {
+		boids_repulsive_force = boids_repulsive_force.lerp(p_value * 100, p_delta);
+	}
+	_ALWAYS_INLINE_ void idle_update_boids_surround_force(const Vector2 &p_value, double p_delta) {
+		boids_surround_force = boids_surround_force.lerp(p_value * 100, p_delta);
+	}
+	_ALWAYS_INLINE_ void set_boids_repulsive_force(const Vector2 &p_value) {
+		boids_repulsive_force = p_value;
+	}
+	_ALWAYS_INLINE_ void set_boids_surround_force(const Vector2 &p_value) {
+		boids_surround_force = p_value;
+	}
 	_ALWAYS_INLINE_ void set_extra_force(const Vector2 &p_value) {
 		extra_force = p_value;
-	}
-	_ALWAYS_INLINE_ void idle_update_extra_force(const Vector2 &p_value, double p_delta) {
-		extra_force = extra_force.lerp(p_value * 100, p_delta);
 	}
 	_ALWAYS_INLINE_ void set_cur_velocity(const Vector2 &p_value) {
 		Vector2 old_velocity = cur_velocity;
@@ -105,7 +123,10 @@ struct ZyiMoveBasicComponent {
 		}
 	}
 	_ALWAYS_INLINE_ Vector2 resolve_velocity() {
-		return cur_velocity * (1.0 + velocity_scale_add_rate) + extra_force;
+		if (flags & ZyiMoveConstant::MOVE_FLAG_BOIDS_GRID_SURROUND_FOLLOW) {
+			return cur_velocity * (1.0 + velocity_scale_add_rate) + boids_repulsive_force + boids_repulsive_force + extra_force;
+		}
+		return cur_velocity * (1.0 + velocity_scale_add_rate) + boids_repulsive_force + extra_force;
 	}
 	_ALWAYS_INLINE_ double resolve_max_velocity_rate() {
 		return max_velocity_rate * (1.0 + velocity_scale_add_rate);
