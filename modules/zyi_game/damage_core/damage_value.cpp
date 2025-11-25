@@ -168,8 +168,10 @@ Dictionary ZyiDamageValue::calc_and_resolve_value_by_type(const TypedArray<ZyiDa
 				real_val += item->get_real_value();
 			} else {
 				item->set_is_crit(true);
-				total_crit += VariantUtilityFunctions::ceili(item->get_value() * crit_damage_rate);
-				crit_real_val += VariantUtilityFunctions::ceili(item->get_real_value() * crit_damage_rate);
+				item->set_value(VariantUtilityFunctions::ceili(item->get_value() * crit_damage_rate));
+				item->set_real_value(VariantUtilityFunctions::ceili(item->get_real_value() * crit_damage_rate));
+				total_crit += item->get_value();
+				crit_real_val += item->get_real_value();
 			}
 		}
 	}
