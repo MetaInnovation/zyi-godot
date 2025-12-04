@@ -7,6 +7,7 @@
 #include "core/templates/local_vector.h"
 #include "core/variant/variant_utility.h"
 #include "sync_helper.h"
+#include "sync_store_node.h"
 #include "synchronizer_data_field.h"
 #include <queue>
 #include <vector>
@@ -41,7 +42,7 @@ public:
 		Array prepare_data;
 	};
 	struct InternalFieldPrepareData {
-		String update_key;
+		uint64_t update_key;
 		int8_t update_type;
 		LocalVector<InternalFieldPrepareDataItem> prepare_data_arr;
 	};
@@ -54,7 +55,7 @@ public:
 	struct InternalFieldData {
 		Ref<ZyiSynchronizerDataField> field;
 		Variant cache_data;
-		HashMap<String, InternalFieldChangeData> update_key_to_just_changed_float_value_map;
+		HashMap<uint64_t, InternalFieldChangeData> update_key_to_just_changed_float_value_map;
 	};
 	struct InternalNodeData {
 		ObjectID node_id;
@@ -73,41 +74,12 @@ public:
 	HashMap<ObjectID, InternalNodeData> _id_to_cached_node_data;
 
 	TypedArray<Dictionary> _update_data;
-	HashMap<String, LocalVector<HashMap<String, Variant>>> _prev_update_key_to_prepare_data_map;
+	HashMap<uint64_t, LocalVector<HashMap<String, Variant>>> _prev_update_key_to_prepare_data_map;
 
 	HashMap<ObjectID, InternalNodeData> _receiver_id_to_cached_node_data;
 	Array _prev_received_update_data;
 	std::queue<PackedByteArray> _received_update_data_queue;
 
-	_FORCE_INLINE_ static Callable resolve_node_getter(const Callable &p_node_getter_resolver, int64_t p_update_type) {
-		Variant ret;
-		Callable::CallError ce;
-		const Variant *argptrs[1];
-		const Variant update_type = p_update_type;
-		argptrs[0] = &update_type;
-		p_node_getter_resolver.callp(argptrs, 1, ret, ce);
-		if (ce.error != Callable::CallError::CALL_OK) {
-			ERR_PRINT(vformat("Error calling ZyiMultiplayerSynchronizerStateTask resolve_node_getter '%s' to callable: %s.", String(p_node_getter_resolver.get_method()), Variant::get_callable_error_text(p_node_getter_resolver, argptrs, 1, ce)));
-		}
-		return ret;
-	}
-	_FORCE_INLINE_ static Node *resolve_node(const Callable &p_node_getter, const String &p_update_key) {
-		Variant ret;
-		if (p_node_getter.is_valid()) {
-			Callable::CallError ce;
-			const Variant *argptrs[1];
-			const Variant update_key = p_update_key;
-			argptrs[0] = &update_key;
-			p_node_getter.callp(argptrs, 1, ret, ce);
-			if (ce.error != Callable::CallError::CALL_OK) {
-				ERR_PRINT(vformat("Error calling ZyiMultiplayerSynchronizerStateTask resolve_node '%s' to callable: %s.", String(p_node_getter.get_method()), Variant::get_callable_error_text(p_node_getter, argptrs, 1, ce)));
-			}
-		}
-		if (ret.is_null()) {
-			return nullptr;
-		}
-		return Object::cast_to<Node>(ret);
-	}
 	_FORCE_INLINE_ static bool is_invalid_prepare_data(const Variant &p_value) {
 		return p_value.get_type() == Variant::NIL || (p_value.get_type() == Variant::OBJECT && p_value.is_null());
 	}
@@ -129,8 +101,8 @@ public:
 	void run();
 
 	void receive_update_data_queue(const TypedArray<PackedByteArray> &p_queue);
-	void consume_interpolate_update_data(float delta, Node *ref_node, const Callable &p_node_getter_resolver);
-	void consume_next_update_data(Node *ref_node, const Callable &p_node_getter_resolver);
+	void consume_interpolate_update_data(float delta, ZyiSyncStoreNode *ref_node);
+	void consume_next_update_data(ZyiSyncStoreNode *ref_node);
 
 	bool add_to_pool(bool high_priority = false, String description = "");
 	bool try_finish_in_pool();

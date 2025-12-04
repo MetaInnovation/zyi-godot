@@ -1,10 +1,10 @@
 #ifndef SYNC_CONSUMER_H
 #define SYNC_CONSUMER_H
 
+#include "./sync_store_node.h"
 #include "core/object/class_db.h"
 #include "core/object/ref_counted.h"
 #include "core/templates/hash_set.h"
-#include "scene/main/node.h"
 #include <queue>
 
 class ZyiSyncConsumer : public RefCounted {
@@ -18,18 +18,19 @@ public:
 	static constexpr const int8_t MAX_RELIABLE_RPC_CALL_NODE_METHOD_RETRY = 9;
 
 	struct InternalCallData {
-		String node_path = "";
+		String node_key = "";
 		String method_name = "";
 		Array args;
-		Variant node_getter;
 		int8_t retry_count = 0;
+		bool is_custom_node_key = false;
+		Variant node_getter;
 		operator String() {
-			return "[" + node_path + "," + method_name + "," + Variant(args).stringify(0) + "," + node_getter.stringify(0) + "," + retry_count + "]";
+			return "[" + node_key + "," + method_name + "," + Variant(args).stringify(0) + "," + Variant(is_custom_node_key).stringify(0) + "," + node_getter.stringify(0) + "," + Variant(retry_count).stringify(0) + "]";
 		}
 	};
 
 	Callable log_handler;
-	Node *anchor_node;
+	ZyiSyncStoreNode *anchor_node;
 	std::queue<InternalCallData> _add_queue;
 	std::queue<InternalCallData> _lazy_reliable_rpc_call_node_method_queue;
 	std::queue<InternalCallData> _reliable_rpc_call_node_method_queue;
@@ -46,13 +47,13 @@ public:
 	}
 
 	void set_log_handler(const Callable &p_handler);
-	void mount(Node *node);
+	void mount(ZyiSyncStoreNode *node);
 	void unmount();
 	void idle(double delta);
 	void _flush_call_node_method_queue();
 	void _flush_call_node_method_queue_with_type(bool is_lazy = false);
-	bool call_node_method(const String &p_node_path, const String &p_method_name, const Array &p_args, const Variant &p_custom_node_getter = Variant());
-	void queue_reliable_rpc_call_node_method(const String &p_node_path, const String &p_method_name, const Array &p_args, const Variant &p_custom_node_getter = Variant());
+	bool call_node_method(const String &p_node_key, const String &p_method_name, const Array &p_args, bool is_custom_node_key = false, const Variant &p_custom_node_getter = Variant());
+	void queue_reliable_rpc_call_node_method(const String &p_node_key, const String &p_method_name, const Array &p_args, bool is_custom_node_key = false, const Variant &p_custom_node_getter = Variant());
 };
 
 #endif /* SYNC_CONSUMER_H */

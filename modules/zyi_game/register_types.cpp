@@ -40,6 +40,7 @@
 
 #include "./multiplayer/sync_consumer.h"
 #include "./multiplayer/sync_helper.h"
+#include "./multiplayer/sync_store_node.h"
 #include "./multiplayer/synchronizer_animation_player_field.h"
 #include "./multiplayer/synchronizer_character_state_field.h"
 #include "./multiplayer/synchronizer_data_field.h"
@@ -87,6 +88,7 @@ void initialize_zyi_game_module(ModuleInitializationLevel p_level) {
 	GDREGISTER_CLASS(ZyiMoveSystem);
 
 	GDREGISTER_CLASS(ZyiSyncHelper);
+	GDREGISTER_CLASS(ZyiSyncStoreNode);
 	GDREGISTER_CLASS(ZyiSynchronizerDataField);
 	GDREGISTER_CLASS(ZyiSynchronizerNodeField);
 	GDREGISTER_CLASS(ZyiSynchronizerAnimationPlayerField);
