@@ -1,7 +1,7 @@
 #include "synchronizer_character_state_field.h"
 
 Array ZyiSynchronizerCharacterStateField::threading_data_list_normalizer(const Array &p_data) {
-	if (!p_data.size() == 2) {
+	if (p_data.size() != 2) {
 		return p_data;
 	}
 	Array attr_configs = p_data[0];
