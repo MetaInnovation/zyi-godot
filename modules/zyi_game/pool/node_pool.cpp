@@ -1,4 +1,5 @@
 #include "node_pool.h"
+#include "core/variant/variant_utility.h"
 
 void ZyiNodePool::_bind_methods() {
 	ClassDB::bind_static_method("ZyiNodePool", D_METHOD("create", "capacity"), &ZyiNodePool::create, DEFVAL(POOL_INIT_CAPACITY));
@@ -69,7 +70,9 @@ int64_t ZyiNodePool::get_available_count() const {
 void ZyiNodePool::clean(bool force_free_node) {
 	while (!_vector_node_pool.empty()) {
 		Node *node = _vector_node_pool.back();
-		node->queue_free();
+		if (VariantUtilityFunctions::is_instance_valid(node)) {
+			node->queue_free();
+		}
 		_vector_node_pool.pop_back();
 	}
 	_node_id_set.clear();
