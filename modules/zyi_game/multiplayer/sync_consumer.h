@@ -14,8 +14,8 @@ protected:
 	static void _bind_methods();
 
 public:
-	static constexpr const int8_t MAX_LAZY_RELIABLE_RPC_CALL_NODE_METHOD_RETRY = 9;
-	static constexpr const int8_t MAX_RELIABLE_RPC_CALL_NODE_METHOD_RETRY = 9;
+	static constexpr const int8_t MAX_LAZY_RELIABLE_RPC_CALL_NODE_METHOD_RETRY = 3;
+	static constexpr const int8_t MAX_RELIABLE_RPC_CALL_NODE_METHOD_RETRY = 2;
 
 	struct InternalCallData {
 		String node_key = "";
@@ -30,6 +30,8 @@ public:
 	};
 
 	Callable log_handler;
+	int8_t max_retry_count;
+	int8_t max_lazy_retry_count;
 	ZyiSyncStoreNode *anchor_node;
 	std::queue<InternalCallData> _add_queue;
 	std::queue<InternalCallData> _lazy_reliable_rpc_call_node_method_queue;
@@ -47,6 +49,7 @@ public:
 	}
 
 	void set_log_handler(const Callable &p_handler);
+	void set_max_retry_count(int8_t p_retry_count = MAX_RELIABLE_RPC_CALL_NODE_METHOD_RETRY, int8_t p_lazy_retry_count = MAX_LAZY_RELIABLE_RPC_CALL_NODE_METHOD_RETRY);
 	void mount(ZyiSyncStoreNode *node);
 	void unmount();
 	void idle(double delta);

@@ -2,15 +2,24 @@
 
 void ZyiSyncConsumer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_log_handler", "handler"), &ZyiSyncConsumer::set_log_handler);
+	ClassDB::bind_method(D_METHOD("set_max_retry_count", "retry_count", "lazy_retry_count"), &ZyiSyncConsumer::set_max_retry_count);
 	ClassDB::bind_method(D_METHOD("mount", "node"), &ZyiSyncConsumer::mount);
 	ClassDB::bind_method(D_METHOD("unmount"), &ZyiSyncConsumer::unmount);
 	ClassDB::bind_method(D_METHOD("idle", "delta"), &ZyiSyncConsumer::idle);
 	ClassDB::bind_method(D_METHOD("call_node_method", "node_key", "method_name", "args", "is_custom_node_key", "node_getter"), &ZyiSyncConsumer::call_node_method, DEFVAL(false), DEFVAL(Variant()));
 	ClassDB::bind_method(D_METHOD("queue_reliable_rpc_call_node_method", "node_key", "method_name", "args", "is_custom_node_key", "node_getter"), &ZyiSyncConsumer::queue_reliable_rpc_call_node_method, DEFVAL(false), DEFVAL(Variant()));
+
+	BIND_CONSTANT(MAX_LAZY_RELIABLE_RPC_CALL_NODE_METHOD_RETRY);
+	BIND_CONSTANT(MAX_RELIABLE_RPC_CALL_NODE_METHOD_RETRY);
 }
 
 void ZyiSyncConsumer::set_log_handler(const Callable &p_handler) {
 	log_handler = p_handler;
+}
+
+void ZyiSyncConsumer::set_max_retry_count(int8_t p_retry_count, int8_t p_lazy_retry_count) {
+	max_retry_count = p_retry_count;
+	max_lazy_retry_count = p_lazy_retry_count;
 }
 
 void ZyiSyncConsumer::mount(ZyiSyncStoreNode *node) {
@@ -40,10 +49,10 @@ void ZyiSyncConsumer::_flush_call_node_method_queue() {
 }
 
 void ZyiSyncConsumer::_flush_call_node_method_queue_with_type(bool is_lazy) {
-	int8_t max_retry = MAX_RELIABLE_RPC_CALL_NODE_METHOD_RETRY;
+	int8_t max_retry = max_retry_count;
 	std::queue<InternalCallData> *queue = &_reliable_rpc_call_node_method_queue;
 	if (is_lazy) {
-		max_retry = MAX_LAZY_RELIABLE_RPC_CALL_NODE_METHOD_RETRY;
+		max_retry = max_lazy_retry_count;
 		queue = &_lazy_reliable_rpc_call_node_method_queue;
 	}
 	HashSet<String> invalid_node_key_set;
