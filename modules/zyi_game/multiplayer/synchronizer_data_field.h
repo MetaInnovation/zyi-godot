@@ -12,6 +12,11 @@ protected:
 	static void _bind_methods();
 
 public:
+	enum DataType : int8_t {
+		DATA_ALL,
+		DATA_IMPORTANT_TRANSFORM,
+		DATA_OTHER,
+	};
 	enum ActionType : int8_t {
 		ACTION_CHANGE,
 		ACTION_ADD
@@ -23,8 +28,8 @@ public:
 
 	virtual Variant get_cache_data(Node *p_controller_node);
 	GDVIRTUAL1RC(Variant, _get_cache_data, Node *);
-	virtual Variant get_prepare_data(Node *p_controller_node, const Variant &p_cache_data = Variant(), bool p_is_update = false);
-	GDVIRTUAL3RC(Variant, _get_prepare_data, Node *, const Variant &, bool);
+	virtual Variant get_prepare_data(Node *p_controller_node, const Variant &p_cache_data = Variant(), bool p_is_update = false, int8_t p_data_type = DATA_ALL);
+	GDVIRTUAL4RC(Variant, _get_prepare_data, Node *, const Variant &, bool, int8_t);
 	virtual Array get_data_list(const Variant &p_data);
 	virtual Callable get_threading_data_list_normalizer();
 	virtual void update_data(const Variant &p_controller_node, const Variant &p_data, const String &p_value_key, const Variant &p_value, int8_t p_action = ACTION_CHANGE);

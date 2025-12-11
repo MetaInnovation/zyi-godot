@@ -1,6 +1,8 @@
 #include "synchronizer_state_task.h"
 
 void ZyiMultiplayerSynchronizerStateTask::_bind_methods() {
+	ClassDB::bind_static_method("ZyiMultiplayerSynchronizerStateTask", D_METHOD("create", "data_type"), &ZyiMultiplayerSynchronizerStateTask::create, DEFVAL(ZyiSynchronizerDataField::DATA_ALL));
+
 	ClassDB::bind_method(D_METHOD("receive_update_data_queue", "queue"), &ZyiMultiplayerSynchronizerStateTask::receive_update_data_queue);
 	ClassDB::bind_method(D_METHOD("consume_interpolate_update_data", "delta", "ref_node"), &ZyiMultiplayerSynchronizerStateTask::consume_interpolate_update_data);
 	ClassDB::bind_method(D_METHOD("consume_next_update_data", "ref_node"), &ZyiMultiplayerSynchronizerStateTask::consume_next_update_data);
@@ -84,7 +86,7 @@ void ZyiMultiplayerSynchronizerStateTask::prepare_run_data() {
 					const Callable threading_data_list_normalizer = field_data.field->get_threading_data_list_normalizer();
 					prepare_data_arr[index] = InternalFieldPrepareDataItem{
 						threading_data_list_normalizer,
-						field_data.field->get_data_list(field_data.field->get_prepare_data(node, field_data.cache_data)),
+						field_data.field->get_data_list(field_data.field->get_prepare_data(node, field_data.cache_data, false, data_type)),
 					};
 				}
 				int8_t update_type = item.meta.get("update_type", UpdateType::UPDATE_NODE);
@@ -232,7 +234,54 @@ void ZyiMultiplayerSynchronizerStateTask::receive_update_data_queue(const TypedA
 }
 
 void ZyiMultiplayerSynchronizerStateTask::consume_interpolate_update_data(float delta, ZyiSyncStoreNode *ref_node) {
-	// update_key_to_just_changed_float_value_map
+	if (data_type != ZyiSynchronizerDataField::DATA_IMPORTANT_TRANSFORM) {
+		return;
+	}
+	for (int64_t update_type = 0; update_type < _prev_received_update_data.size(); update_type++) {
+		Dictionary update_key_to_sync_record_list = _prev_received_update_data[update_type];
+		if (update_key_to_sync_record_list.is_empty()) {
+			continue;
+		}
+		for (const uint64_t &update_key : update_key_to_sync_record_list.keys()) {
+			Node *node = ref_node->sync_get_node_or_null(update_key);
+			if (node == nullptr || node->is_queued_for_deletion()) {
+				continue;
+			}
+			ObjectID node_id = node->get_instance_id();
+			InternalNodeData *node_data = _receiver_id_to_cached_node_data.getptr(node_id);
+			if (node_data == nullptr) {
+				continue;
+			}
+			Array sync_record_list = update_key_to_sync_record_list[update_key];
+			for (int64_t item_index = 0; item_index < sync_record_list.size(); item_index++) {
+				Variant value_key_to_data_val = sync_record_list[item_index];
+				if (value_key_to_data_val.get_type() != Variant::DICTIONARY) {
+					continue;
+				}
+				InternalFieldData &field_data = node_data->field_list[item_index];
+				const Ref<ZyiSynchronizerDataField> &field = field_data.field;
+				Variant prepare_data = field->get_prepare_data(node, field_data.cache_data, true, data_type);
+				if (is_invalid_prepare_data(prepare_data)) {
+					continue;
+				}
+				field_data.value_key_to_just_changed_float_value_map;
+				Dictionary value_key_to_data = value_key_to_data_val;
+				for (const String &value_key : value_key_to_data.keys()) {
+					Array item = value_key_to_data[value_key];
+					Variant value = parse_value(item[0]);
+					int8_t action = item[1];
+					if (action == ZyiSynchronizerDataField::ACTION_CHANGE && value.get_type() == Variant::VECTOR2) {
+						InternalFieldChangeData *cd = field_data.value_key_to_just_changed_float_value_map.getptr(value_key);
+						if (cd == nullptr || cd->changed_count < 2) {
+							continue;
+						}
+						Vector2 vector = cd->p2_vector + delta * (cd->p2_vector - cd->p1_vector);
+						field->update_data(node, prepare_data, value_key, vector, action);
+					}
+				}
+			}
+		}
+	}
 }
 
 void ZyiMultiplayerSynchronizerStateTask::consume_next_update_data(ZyiSyncStoreNode *ref_node) {
@@ -277,16 +326,27 @@ void ZyiMultiplayerSynchronizerStateTask::consume_next_update_data(ZyiSyncStoreN
 				}
 				InternalFieldData &field_data = node_data->field_list[item_index];
 				const Ref<ZyiSynchronizerDataField> &field = field_data.field;
-				Variant prepare_data = field->get_prepare_data(node, field_data.cache_data, true);
+				Variant prepare_data = field->get_prepare_data(node, field_data.cache_data, true, data_type);
 				if (is_invalid_prepare_data(prepare_data)) {
 					continue;
 				}
 				Dictionary value_key_to_data = value_key_to_data_val;
+				bool is_important_transform = data_type == ZyiSynchronizerDataField::DATA_IMPORTANT_TRANSFORM;
 				for (const String &value_key : value_key_to_data.keys()) {
 					Array item = value_key_to_data[value_key];
 					Variant value = parse_value(item[0]);
 					int8_t action = item[1];
 					field->update_data(node, prepare_data, value_key, value, action);
+					if (is_important_transform && action == ZyiSynchronizerDataField::ACTION_CHANGE && value.get_type() == Variant::VECTOR2) {
+						InternalFieldChangeData *cd = field_data.value_key_to_just_changed_float_value_map.getptr(value_key);
+						if (cd == nullptr) {
+							field_data.value_key_to_just_changed_float_value_map[value_key] = InternalFieldChangeData{ 1, value, value };
+						} else {
+							cd->changed_count += 1;
+							cd->p1_vector = cd->p2_vector;
+							cd->p2_vector = value;
+						}
+					}
 				}
 			}
 		}
@@ -348,7 +408,13 @@ void ZyiMultiplayerSynchronizerStateTask::clean(bool force) {
 	}
 }
 
-ZyiMultiplayerSynchronizerStateTask::ZyiMultiplayerSynchronizerStateTask() {
+Ref<ZyiMultiplayerSynchronizerStateTask> ZyiMultiplayerSynchronizerStateTask::create(int8_t p_data_type) {
+	Ref<ZyiMultiplayerSynchronizerStateTask> result = memnew(ZyiMultiplayerSynchronizerStateTask(p_data_type));
+	return result;
+}
+
+ZyiMultiplayerSynchronizerStateTask::ZyiMultiplayerSynchronizerStateTask(int8_t p_data_type) :
+		data_type(p_data_type) {
 	_update_data.resize(2);
 	_update_data[0] = Dictionary();
 	_update_data[1] = Dictionary();

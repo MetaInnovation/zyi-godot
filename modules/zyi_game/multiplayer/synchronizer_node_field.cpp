@@ -37,7 +37,7 @@ Variant ZyiSynchronizerNodeField::get_cache_data(Node *p_controller_node) {
 	return node->get_instance_id();
 }
 
-Variant ZyiSynchronizerNodeField::get_prepare_data(Node *p_controller_node, const Variant &p_cache_data, bool p_is_update) {
+Variant ZyiSynchronizerNodeField::get_prepare_data(Node *p_controller_node, const Variant &p_cache_data, bool p_is_update, int8_t p_data_type) {
 	if (!p_controller_node || !p_controller_node->is_inside_tree()) {
 		return Variant();
 	}
@@ -53,8 +53,16 @@ Variant ZyiSynchronizerNodeField::get_prepare_data(Node *p_controller_node, cons
 	if (node == nullptr) {
 		return result;
 	}
+	bool is_frequency = p_data_type == DATA_IMPORTANT_TRANSFORM;
+	bool is_unfrequency = p_data_type == DATA_OTHER;
 	for (int i = 0; i < property_path_list.size(); i++) {
 		const String &property_path = property_path_list[i];
+		if (is_frequency && !is_frequency_property_path(property_path)) {
+			continue;
+		}
+		if (is_unfrequency && is_frequency_property_path(property_path)) {
+			continue;
+		}
 		Array item = build_data_item(property_path, node->get_indexed(NodePath(property_path).get_as_property_path().get_subnames()));
 		result.push_back(item);
 	}

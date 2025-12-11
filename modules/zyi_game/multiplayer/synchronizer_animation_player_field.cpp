@@ -37,8 +37,8 @@ Variant ZyiSynchronizerAnimationPlayerField::get_cache_data(Node *p_controller_n
 	return result;
 }
 
-Variant ZyiSynchronizerAnimationPlayerField::get_prepare_data(Node *p_controller_node, const Variant &p_cache_data, bool p_is_update) {
-	if (p_controller_node == nullptr || !p_controller_node->is_inside_tree()) {
+Variant ZyiSynchronizerAnimationPlayerField::get_prepare_data(Node *p_controller_node, const Variant &p_cache_data, bool p_is_update, int8_t p_data_type) {
+	if (p_data_type == DATA_IMPORTANT_TRANSFORM || p_controller_node == nullptr || !p_controller_node->is_inside_tree()) {
 		return Variant();
 	}
 	TypedArray<AnimationPlayer> node_list;

@@ -18,8 +18,12 @@ public:
 	void set_property_path_list(const TypedArray<String> &p_property_path_list);
 
 	Variant get_cache_data(Node *p_controller_node);
-	Variant get_prepare_data(Node *p_controller_node, const Variant &p_cache_data = Variant(), bool p_is_update = false);
+	Variant get_prepare_data(Node *p_controller_node, const Variant &p_cache_data = Variant(), bool p_is_update = false, int8_t p_data_type = DATA_ALL);
 	void update_data(const Variant &p_controller_node, const Variant &p_data, const String &p_value_key, const Variant &p_value, int8_t p_action = ACTION_CHANGE);
+
+	_ALWAYS_INLINE_ bool is_frequency_property_path(const String &p_property_path) const {
+		return p_property_path == "position";
+	}
 };
 
 #endif /* SYNCHRONIZER_NODE_FIELD_H */

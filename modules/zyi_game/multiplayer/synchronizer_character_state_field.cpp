@@ -30,7 +30,10 @@ Callable ZyiSynchronizerCharacterStateField::get_threading_data_list_normalizer(
 	return callable_mp_static(&ZyiSynchronizerCharacterStateField::threading_data_list_normalizer);
 }
 
-Variant ZyiSynchronizerCharacterStateField::get_prepare_data(Node *p_controller_node, const Variant &p_cache_data, bool p_is_update) {
+Variant ZyiSynchronizerCharacterStateField::get_prepare_data(Node *p_controller_node, const Variant &p_cache_data, bool p_is_update, int8_t p_data_type) {
+	if (p_data_type == DATA_IMPORTANT_TRANSFORM) {
+		return Variant();
+	}
 	if (p_is_update) {
 		return true;
 	}

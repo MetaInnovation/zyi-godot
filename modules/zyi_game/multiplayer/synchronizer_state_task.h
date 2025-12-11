@@ -47,21 +47,22 @@ public:
 		LocalVector<InternalFieldPrepareDataItem> prepare_data_arr;
 	};
 	struct InternalFieldChangeData {
-		bool has_changed = false;
-		uint64_t value_ticks_usec = 0;
-		float value = 0.0;
-		float change_rate_per_sec = 0.0;
+		uint32_t changed_count;
+		Vector2 p1_vector;
+		Vector2 p2_vector;
 	};
 	struct InternalFieldData {
 		Ref<ZyiSynchronizerDataField> field;
 		Variant cache_data;
-		HashMap<uint64_t, InternalFieldChangeData> update_key_to_just_changed_float_value_map;
+		HashMap<String, InternalFieldChangeData> value_key_to_just_changed_float_value_map;
 	};
 	struct InternalNodeData {
 		ObjectID node_id;
 		Dictionary meta;
 		LocalVector<InternalFieldData> field_list;
 	};
+
+	int8_t data_type = ZyiSynchronizerDataField::DATA_ALL;
 
 	int64_t task_id = INVALID_TASK_ID;
 	Mutex mutex;
@@ -111,8 +112,9 @@ public:
 	bool accept_work(int64_t p_id);
 	bool finish_work();
 	void clean(bool force = false);
+	static Ref<ZyiMultiplayerSynchronizerStateTask> create(int8_t p_data_type = ZyiSynchronizerDataField::DATA_ALL);
 
-	ZyiMultiplayerSynchronizerStateTask();
+	ZyiMultiplayerSynchronizerStateTask(int8_t p_data_type = ZyiSynchronizerDataField::DATA_ALL);
 };
 
 #endif /* SYNCHRONIZER_STATE_TASK_H */
