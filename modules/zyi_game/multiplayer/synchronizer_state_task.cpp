@@ -270,13 +270,17 @@ void ZyiMultiplayerSynchronizerStateTask::consume_interpolate_update_data(float 
 					Array item = value_key_to_data[value_key];
 					Variant value = parse_value(item[0]);
 					int8_t action = item[1];
-					if (action == ZyiSynchronizerDataField::ACTION_CHANGE && value.get_type() == Variant::VECTOR2) {
+					if (action == ZyiSynchronizerDataField::ACTION_CHANGE && (value.get_type() == Variant::VECTOR2 || value.get_type() == Variant::FLOAT)) {
 						InternalFieldChangeData *cd = field_data.value_key_to_just_changed_float_value_map.getptr(value_key);
 						if (cd == nullptr || cd->changed_count < 2) {
 							continue;
 						}
 						Vector2 vector = cd->p2_vector + delta * (cd->p2_vector - cd->p1_vector);
-						field->update_data(node, prepare_data, value_key, vector, action);
+						if (value.get_type() == Variant::FLOAT) {
+							field->update_data(node, prepare_data, value_key, vector.x, action);
+						} else {
+							field->update_data(node, prepare_data, value_key, vector, action);
+						}
 					}
 				}
 			}
@@ -337,14 +341,20 @@ void ZyiMultiplayerSynchronizerStateTask::consume_next_update_data(ZyiSyncStoreN
 					Variant value = parse_value(item[0]);
 					int8_t action = item[1];
 					field->update_data(node, prepare_data, value_key, value, action);
-					if (is_important_transform && action == ZyiSynchronizerDataField::ACTION_CHANGE && value.get_type() == Variant::VECTOR2) {
+					if (is_important_transform && action == ZyiSynchronizerDataField::ACTION_CHANGE && (value.get_type() == Variant::VECTOR2 || value.get_type() == Variant::FLOAT)) {
 						InternalFieldChangeData *cd = field_data.value_key_to_just_changed_float_value_map.getptr(value_key);
+						Vector2 vector;
+						if (value.get_type() == Variant::FLOAT) {
+							vector = Vector2(value, 0);
+						} else {
+							vector = value;
+						}
 						if (cd == nullptr) {
-							field_data.value_key_to_just_changed_float_value_map[value_key] = InternalFieldChangeData{ 1, value, value };
+							field_data.value_key_to_just_changed_float_value_map[value_key] = InternalFieldChangeData{ 1, vector, vector };
 						} else {
 							cd->changed_count += 1;
 							cd->p1_vector = cd->p2_vector;
-							cd->p2_vector = value;
+							cd->p2_vector = vector;
 						}
 					}
 				}

@@ -22,7 +22,7 @@ public:
 	void update_data(const Variant &p_controller_node, const Variant &p_data, const String &p_value_key, const Variant &p_value, int8_t p_action = ACTION_CHANGE);
 
 	_ALWAYS_INLINE_ bool is_frequency_property_path(const String &p_property_path) const {
-		return p_property_path == "position";
+		return p_property_path == "position" || p_property_path == "rotation" || p_property_path == "flip_h" || p_property_path == "flip_v";
 	}
 };
 
